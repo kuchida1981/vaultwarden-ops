@@ -47,10 +47,10 @@
 
 ## 7. DNSとカットオーバー
 
-- [ ] 7.1 初回`terraform apply`(承認込み)を実行しインフラ一式を作成
-- [ ] 7.2 出力された静的External IPを使い、`u-rei.com`のDNS管理画面で`vaultwarden.u-rei.com`のAレコードを手動作成
-- [ ] 7.3 Let's Encrypt証明書が正常に発行され、`https://vaultwarden.u-rei.com`にアクセスできることを確認
-- [ ] 7.4 `tailscale ssh`でVMに接続できること、`/admin`がtailnet外から403になることを確認
+- [x] 7.1 初回`terraform apply`(承認込み)を実行しインフラ一式を作成
+- [x] 7.2 出力された静的External IPを使い、`u-rei.com`のDNS管理画面で`vaultwarden.u-rei.com`のAレコードを手動作成
+- [x] 7.3 Let's Encrypt証明書が正常に発行され、`https://vaultwarden.u-rei.com`にアクセスできることを確認
+- [x] 7.4 `tailscale ssh`(相当のOpenSSH経由)でVMに接続できること、`/admin`がtailnet外から403になることを確認
 - [ ] 7.5 管理画面から家族分の招待リンクを発行し共有
 
 ## 8. ドキュメント

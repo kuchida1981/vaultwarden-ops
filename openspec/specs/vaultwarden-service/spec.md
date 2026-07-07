@@ -1,0 +1,44 @@
+## Purpose
+
+Docker ComposeによるVaultwarden+Caddyのデプロイ、カスタムドメイン(`vaultwarden.u-rei.com`)でのTLS終端、公開環境向けハードニング設定(招待制サインアップ、ADMIN_TOKENによる管理パネル保護、専用ディスクへのデータ永続化)を提供する。
+
+## Requirements
+
+### Requirement: Docker ComposeによるVaultwarden+Caddyのデプロイ
+システムは、VaultwardenとCaddy(リバースプロキシ/TLS終端)をDocker Composeで構成し、VM上で稼働させなければならない(SHALL)。
+
+#### Scenario: docker composeでサービスが起動する
+- **WHEN** VM上で`docker compose up -d`が実行される
+- **THEN** vaultwardenコンテナとcaddyコンテナがともに起動し、正常稼働状態になる
+
+### Requirement: カスタムドメインでの自動TLS終端
+システムは、`vaultwarden.u-rei.com`宛のHTTPSリクエストに対し、Let's Encryptから自動取得した証明書でTLSを終端しなければならない(SHALL)。
+
+#### Scenario: 有効なTLS証明書で応答する
+- **WHEN** ブラウザが`https://vaultwarden.u-rei.com`にアクセスする
+- **THEN** Let's Encrypt発行の有効な証明書が提示され、警告なく接続できる
+
+### Requirement: サインアップは招待制のみ
+システムは、一般ユーザーによる自己サインアップを無効化し、管理者が発行した招待リンク経由でのみ新規アカウント作成を許可しなければならない(SHALL)。
+
+#### Scenario: 自己サインアップは拒否される
+- **WHEN** 未認証のユーザーが公開のサインアップ画面から新規アカウント作成を試みる
+- **THEN** サインアップが無効化されており、アカウントは作成されない
+
+#### Scenario: 招待リンク経由の登録は成功する
+- **WHEN** 管理者が`/admin`パネルから発行した招待リンクを使ってユーザーが登録する
+- **THEN** アカウントが正常に作成される
+
+### Requirement: データは専用ディスク上に永続化
+システムは、Vaultwardenのデータ(SQLiteデータベース、RSA鍵、添付ファイル)をgcp-infrastructureで定義された専用永続ディスクのマウントパスに書き込まなければならない(SHALL)。
+
+#### Scenario: コンテナ再起動後もデータが保持される
+- **WHEN** vaultwardenコンテナが再起動される
+- **THEN** 専用ディスクのマウントパスに保存されていたデータベースと添付ファイルがそのまま読み込まれる
+
+### Requirement: ADMIN_TOKENによる管理パネル保護
+システムは、Vaultwardenの`/admin`パネルへのアクセスに、Secret Manager由来のADMIN_TOKENの提示を要求しなければならない(SHALL)。
+
+#### Scenario: 誤ったトークンでのアクセスは拒否される
+- **WHEN** 誤った、または未指定のトークンで`/admin`にアクセスする
+- **THEN** アクセスが拒否される
