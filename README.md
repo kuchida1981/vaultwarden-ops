@@ -66,7 +66,7 @@ terraform output
 
 1. https://login.tailscale.com/admin/settings/oauth を開く
 2. "Generate OAuth client" を実行
-3. スコープに `devices:core` (write) と `acl` (write) を付与
+3. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)
 4. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
 
 ### 3. GitHub Actions Secretsの登録
