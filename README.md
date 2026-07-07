@@ -48,7 +48,7 @@ cd terraform/bootstrap
 terraform init
 terraform apply \
   -var="project_id=<your-gcp-project-id>" \
-  -var="github_repo=<your-github-username>/vaultwarden-hosting"
+  -var="github_repo=<your-github-username>/<your-repo-name>"  # must exactly match the GitHub repo, e.g. kuchida1981/vaultwarden-ops
 ```
 
 apply完了後、以下のoutputを控える(次のGitHub Secrets登録で使う):
