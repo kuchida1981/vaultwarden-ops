@@ -4,7 +4,7 @@
 
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
 - SSH / Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
-- データバックアップ・稼働監視・SMTP招待は今回のスコープ外(ロードマップ、下記参照)
+- データバックアップ・稼働監視は今回のスコープ外(ロードマップ、下記参照)。SMTPによるメール招待は導入しない方針(招待リンクは手動共有)
 
 ## アーキテクチャ
 
@@ -138,13 +138,12 @@ tailscale ping vaultwarden   # または `tailscale status` でIPを確認
 - `tailscale ssh <vm-hostname>` でVMに接続できることを確認
 - tailnet外から`/admin`にアクセスすると403になることを確認(手順7の`hosts`設定をしていない端末で確認)
 - 手順7の設定をした自分の端末から`/admin`にアクセスできることを確認
-- `/admin`から家族分のアカウント招待リンクを発行し、個別に共有する(SMTPは未設定のため、リンクはLINEやメール等で手動送付)
+- `/admin`から家族分のアカウント招待リンクを発行し、個別に共有する(SMTPは導入しない方針のため、リンクはLINEやメール等で手動送付)
 
 ## ロードマップ(本リポジトリの現時点のスコープ外)
 
 - NASへの定期バックアップ(rsync over Tailscale SSH、世代管理)
 - 稼働監視・アラート(Cloud Monitoring Uptime Check)
-- SMTPによるメール招待・通知
 
 ## ディレクトリ構成
 
