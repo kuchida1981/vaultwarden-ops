@@ -1,0 +1,20 @@
+{$DOMAIN} {
+	encode gzip
+
+	# Vaultwarden's websocket endpoint for live sync notifications.
+	reverse_proxy /notifications/hub vaultwarden:3012
+
+	# Admin panel: only reachable from within the Tailscale tailnet
+	# (Tailscale's CGNAT range). Everyone else gets a 403, regardless of
+	# ADMIN_TOKEN.
+	handle /admin* {
+		@not_tailnet not remote_ip 100.64.0.0/10
+		respond @not_tailnet 403
+
+		reverse_proxy vaultwarden:80
+	}
+
+	handle {
+		reverse_proxy vaultwarden:80
+	}
+}
