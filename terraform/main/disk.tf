@@ -6,8 +6,11 @@ resource "google_compute_disk" "vaultwarden_data" {
   name    = "vaultwarden-data"
   project = var.project_id
   zone    = var.zone
-  type    = "pd-standard"
-  size    = 10
+  # pd-balanced (SSD-backed) rather than pd-standard (HDD-backed): SQLite
+  # fsyncs on every write, and pd-standard's IOPS ceiling is low enough to
+  # noticeably affect responsiveness even at this small scale.
+  type = "pd-balanced"
+  size = 10
 
   lifecycle {
     prevent_destroy = true

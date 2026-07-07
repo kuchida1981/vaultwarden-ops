@@ -7,6 +7,15 @@
 	# Admin panel: only reachable from within the Tailscale tailnet
 	# (Tailscale's CGNAT range). Everyone else gets a 403, regardless of
 	# ADMIN_TOKEN.
+	#
+	# NOTE: {$DOMAIN}'s public DNS A record points at the VM's public IP
+	# (see README setup step 6), so simply visiting https://{$DOMAIN}/admin
+	# arrives over the public internet with a non-Tailscale source IP even
+	# if your device is also connected to Tailscale - it still gets 403.
+	# To actually reach this from the tailnet, override DNS resolution for
+	# this hostname on your admin device(s) to the VM's Tailscale IP (see
+	# README setup step 7 for how). This block's IP check is still what
+	# enforces the restriction; it's the DNS path to it that needs care.
 	handle /admin* {
 		@not_tailnet not remote_ip 100.64.0.0/10
 		respond @not_tailnet 403

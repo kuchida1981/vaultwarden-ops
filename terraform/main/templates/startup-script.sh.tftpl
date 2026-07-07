@@ -4,7 +4,6 @@ set -euxo pipefail
 PROJECT_ID="${project_id}"
 DOMAIN="${domain}"
 GITHUB_REPO="${github_repo}"
-VAULTWARDEN_TAG="${vaultwarden_tag}"
 ADMIN_SECRET_ID="${admin_secret_id}"
 TS_SECRET_ID="${ts_secret_id}"
 
@@ -59,12 +58,16 @@ fi
 if ! mountpoint -q /opt/vaultwarden/data; then
   mount "$DATA_DISK" /opt/vaultwarden/data
 fi
-grep -q vaultwarden-data /etc/fstab || echo "$DATA_DISK /opt/vaultwarden/data ext4 discard,defaults 0 2" >> /etc/fstab
+grep -q vaultwarden-data /etc/fstab || echo "$DATA_DISK /opt/vaultwarden/data ext4 discard,defaults,nofail 0 2" >> /etc/fstab
 
 # --- application source (this is a public repo; no credentials needed) ---
+# A pull failure (e.g. transient network blip during a reboot) must not
+# abort the whole script via `set -e` - falling back to the already-cloned
+# copy lets Vaultwarden keep starting instead of staying down until the
+# next successful boot.
 APP_DIR=/opt/vaultwarden/app
 if [ -d "$APP_DIR/.git" ]; then
-  git -C "$APP_DIR" pull --ff-only
+  git -C "$APP_DIR" pull --ff-only || echo "WARNING: git pull failed, using existing local checkout"
 else
   rm -rf "$APP_DIR"
   git clone --depth 1 "https://github.com/$GITHUB_REPO.git" "$APP_DIR"
@@ -74,7 +77,6 @@ ADMIN_TOKEN=$(fetch_secret "$ADMIN_SECRET_ID")
 cat >/opt/vaultwarden/.env <<EOF
 DOMAIN=https://$DOMAIN
 ADMIN_TOKEN=$ADMIN_TOKEN
-VAULTWARDEN_TAG=$VAULTWARDEN_TAG
 DATA_DIR=/opt/vaultwarden/data
 EOF
 chmod 600 /opt/vaultwarden/.env

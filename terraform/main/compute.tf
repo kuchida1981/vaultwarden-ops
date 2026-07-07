@@ -8,8 +8,8 @@ resource "google_compute_instance" "vaultwarden" {
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-13"
-      size  = 10
-      type  = "pd-standard"
+      size  = 20
+      type  = "pd-balanced"
     }
   }
 
@@ -43,7 +43,6 @@ resource "google_compute_instance" "vaultwarden" {
       project_id      = var.project_id
       domain          = var.domain
       github_repo     = var.github_repo
-      vaultwarden_tag = var.vaultwarden_image_tag
       admin_secret_id = google_secret_manager_secret.admin_token.secret_id
       ts_secret_id    = google_secret_manager_secret.tailscale_authkey.secret_id
     })

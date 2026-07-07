@@ -116,12 +116,29 @@ terraform output vm_external_ip
 
 `u-rei.com`のDNS管理画面で `vaultwarden` サブドメインのAレコードをこのIPに向けて作成する。
 
-### 7. 動作確認と家族の招待
+### 7. adminパネルへのアクセス経路(自分の端末のみ)
+
+`vaultwarden.u-rei.com`の公開DNSはVMの公開IPを指しているため、単にブラウザで`https://vaultwarden.u-rei.com/admin`を開くと、Tailscaleに接続していても通信は公開インターネット経由になり、Caddyから見た送信元IPはTailscaleのCGNAT範囲(100.64.0.0/10)にならず403になる。tailnet経由で`/admin`に到達するには、**自分のadmin用端末でだけ**このホスト名をVMのTailscale IPに解決させる必要がある。
+
+もっとも簡単な方法は、自分の端末の`hosts`ファイルに1行追記すること:
+
+```bash
+# VMのTailscale IPを確認
+tailscale ping vaultwarden   # または `tailscale status` でIPを確認
+
+# /etc/hosts (Windowsは C:\Windows\System32\drivers\etc\hosts) に追記
+100.x.y.z  vaultwarden.u-rei.com
+```
+
+家族の他の端末はこの設定をしない(公開ドメインのままで`/admin`には到達できない状態を維持する)。
+
+### 8. 動作確認と家族の招待
 
 - `https://vaultwarden.u-rei.com` にアクセスし、Let's Encrypt証明書が有効になっていることを確認
 - `tailscale ssh <vm-hostname>` でVMに接続できることを確認
-- tailnet外から`/admin`にアクセスすると403になることを確認
-- `/admin`(tailnet経由)から家族分のアカウント招待リンクを発行し、個別に共有する(SMTPは未設定のため、リンクはLINEやメール等で手動送付)
+- tailnet外から`/admin`にアクセスすると403になることを確認(手順7の`hosts`設定をしていない端末で確認)
+- 手順7の設定をした自分の端末から`/admin`にアクセスできることを確認
+- `/admin`から家族分のアカウント招待リンクを発行し、個別に共有する(SMTPは未設定のため、リンクはLINEやメール等で手動送付)
 
 ## ロードマップ(本リポジトリの現時点のスコープ外)
 

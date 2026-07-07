@@ -1,13 +1,18 @@
-# Auth key the VM consumes once at first boot to join the tailnet
-# unattended. `preauthorized = true` combined with the ACL's tagOwners
-# entry below means no manual approval step is needed in the Tailscale
-# admin console.
+# Auth key the VM consumes at boot to join the tailnet unattended.
+# `preauthorized = true` combined with the ACL's tagOwners entry below
+# means no manual approval step is needed in the Tailscale admin console.
+# `reusable = true` because the VM may be destroyed and recreated (e.g. a
+# machine-type change); a one-time key would leave the replacement VM
+# unable to join tailnet, and therefore unreachable via `tailscale ssh`.
+# The key only ever tags a device as tag:vaultwarden-server, and is only
+# readable by that VM's own runtime service account, so the exposure from
+# reuse is minimal.
 resource "tailscale_tailnet_key" "vm" {
-  reusable      = false
+  reusable      = true
   ephemeral     = false
   preauthorized = true
   tags          = ["tag:vaultwarden-server"]
-  expiry        = 7776000 # 90 days; only needs to survive until first boot
+  expiry        = 7776000 # 90 days; rotate by re-applying before this lapses
 }
 
 # WARNING: `tailscale_acl` manages the tailnet's *entire* ACL policy file as

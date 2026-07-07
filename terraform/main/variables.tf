@@ -26,12 +26,6 @@ variable "github_repo" {
   type        = string
 }
 
-variable "vaultwarden_image_tag" {
-  description = "vaultwarden/server image tag to run."
-  type        = string
-  default     = "latest"
-}
-
 variable "tailscale_tailnet" {
   description = "Tailscale tailnet identifier (e.g. example.ts.net or an org name)."
   type        = string
