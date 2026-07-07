@@ -64,10 +64,20 @@ terraform output
 
 `terraform/main`の`tailscale`プロバイダがACLと認証キーをコード管理するために、tailnetへのAPIアクセス権を持つOAuthクライアントが必要。
 
-1. https://login.tailscale.com/admin/settings/oauth を開く
-2. "Generate OAuth client" を実行
-3. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)
-4. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
+1. **先にタグを定義する**: https://login.tailscale.com/admin/acl/file を開き、`tagOwners`に以下を追記して保存する(`Auth Keys`スコープはタグ制限が必須で、そのタグがACLに未定義だと選択できない)
+
+   ```json
+   "tagOwners": {
+       "tag:vaultwarden-server": ["autogroup:admin"],
+   },
+   ```
+
+   (このエントリは`terraform/main/tailscale.tf`の`tailscale_acl`リソースが後で適用する内容と同一なので、後続のTerraform applyと矛盾しない)
+
+2. https://login.tailscale.com/admin/settings/oauth を開く
+3. "Generate OAuth client" を実行
+4. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)。Auth Keysのタグには手順1で定義した `tag:vaultwarden-server` を選択する
+5. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
 
 ### 3. GitHub Actions Secretsの登録
 
