@@ -27,6 +27,15 @@ resource "tailscale_tailnet_key" "vm" {
 # tag owner for tag:vaultwarden-server, and (2) an `ssh` block that restricts
 # `tailscale ssh` into that tag to the tailnet admin only.
 resource "tailscale_acl" "this" {
+  # The provider refuses to blindly clobber a hand-edited, non-default ACL
+  # (safety guard: "You are trying to overwrite a non-default policy").
+  # That's expected here: this tailnet's policy was already manually edited
+  # (per the README bootstrap step, to pre-define tag:vaultwarden-server
+  # before creating the OAuth client) before this resource was ever applied.
+  # The content below was reviewed to be a superset of that manual edit, so
+  # overwriting it is intentional, not accidental.
+  overwrite_existing_content = true
+
   acl = jsonencode({
     tagOwners = {
       "tag:vaultwarden-server" = ["autogroup:admin"]
