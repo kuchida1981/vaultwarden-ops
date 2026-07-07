@@ -18,6 +18,20 @@ EOF
 systemctl enable --now unattended-upgrades
 
 # --- docker ---
+# Disable the userland-proxy: with it enabled, Docker relays published-port
+# connections through a host-side process that re-originates them toward
+# the container, so the container sees the docker bridge gateway as the
+# source IP instead of the real client - which silently breaks Caddy's
+# remote_ip-based /admin gating (it would 403 *everyone*, tailnet or not).
+# With it disabled, published ports are pure iptables DNAT, which preserves
+# the real source IP end to end.
+mkdir -p /etc/docker
+DAEMON_JSON_CHANGED=0
+if [ "$(cat /etc/docker/daemon.json 2>/dev/null)" != '{"userland-proxy": false}' ]; then
+  echo '{"userland-proxy": false}' > /etc/docker/daemon.json
+  DAEMON_JSON_CHANGED=1
+fi
+
 if ! command -v docker >/dev/null 2>&1; then
   install -m 0755 -d /etc/apt/keyrings
   curl -fsSL https://download.docker.com/linux/debian/gpg -o /etc/apt/keyrings/docker.asc
@@ -27,6 +41,8 @@ if ! command -v docker >/dev/null 2>&1; then
     > /etc/apt/sources.list.d/docker.list
   apt-get update
   apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin
+elif [ "$DAEMON_JSON_CHANGED" = "1" ]; then
+  systemctl restart docker
 fi
 
 # --- tailscale (idempotent: only join if not already up) ---

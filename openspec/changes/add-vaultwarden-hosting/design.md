@@ -73,6 +73,7 @@ tfstateをGCSバケットに置く方針だが、そのバケット自体とWork
 - [トレードオフ] フル公開+ tailnet限定管理という構成は、tailnet限定公開に比べ攻撃対象領域が広い → Caddyでの`/admin`アクセス制限、ADMIN_TOKEN、サインアップ無効化、自動セキュリティ更新の組み合わせで許容範囲に抑える
 - [トレードオフ] 承認ゲート付きCI/CDは完全自動化に比べ運用の手間が増える → 変更頻度が低い個人インフラのため妥当と判断
 - [リスク] `/admin`のCaddy送信元IP制限(100.64.0.0/10)は、`vaultwarden.u-rei.com`の公開DNSがVMの公開IPを指すため、公開ドメイン経由でアクセスすると常に非tailnetの送信元IPになり403になる(実装レビューで発覚) → adminは自分の端末の`hosts`ファイルでこのホスト名をVMのTailscale IPに上書きすることで到達する運用とし、READMEに手順化(恒久対応としてはTailscale Split DNSや`tailscale cert`によるMagicDNS側site blockの追加も検討可能)
+- [リスク] 上記の`hosts`上書き経由でTailscale IPに直接アクセスしても、Dockerの`userland-proxy`が有効だとCaddyコンテナから見た送信元IPがdockerブリッジのゲートウェイIPにすり替わり、tailnet経由でも常に403になる(実カットオーバー時に発覚) → `/etc/docker/daemon.json`で`userland-proxy: false`を設定し、iptablesのみのDNATで送信元IPを保持するようstartup-scriptを修正
 
 ## Migration Plan
 
