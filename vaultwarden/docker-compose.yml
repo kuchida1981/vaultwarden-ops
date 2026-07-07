@@ -1,0 +1,40 @@
+services:
+  vaultwarden:
+    # Pinned to a literal tag (not a variable) so Dependabot's
+    # docker-compose ecosystem can detect and bump it - it cannot resolve
+    # shell/env interpolation.
+    image: vaultwarden/server:1.36.0
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN}
+      ADMIN_TOKEN: ${ADMIN_TOKEN}
+      SIGNUPS_ALLOWED: "false"
+      WEBSOCKET_ENABLED: "true"
+    volumes:
+      - ${DATA_DIR:-./data}:/data
+    networks:
+      - internal
+
+  caddy:
+    image: caddy:2.11.4
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - internal
+    depends_on:
+      - vaultwarden
+
+networks:
+  internal:
+
+volumes:
+  caddy_data:
+  caddy_config:
