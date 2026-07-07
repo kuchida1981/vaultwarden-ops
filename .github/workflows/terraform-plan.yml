@@ -26,6 +26,7 @@ jobs:
       # never fires for it.
       - name: Check for relevant changes
         id: changes
+        working-directory: ${{ github.workspace }}
         run: |
           if git diff --quiet "origin/${{ github.event.pull_request.base.ref }}...HEAD" -- terraform/main .github/workflows/terraform-plan.yml; then
             echo "relevant=false" >> "$GITHUB_OUTPUT"
