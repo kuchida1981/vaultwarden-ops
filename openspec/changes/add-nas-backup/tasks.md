@@ -37,7 +37,7 @@
 ## 6. 動作確認
 
 - [x] 6.1 `systemctl start backup.service`で初回バックアップを手動トリガーし、正常終了(exit code 0)することを確認する(初回実行はexit code 23で失敗。NAS側rsyncdアカウントに`chgrp`権限がなく、また`#recycle`/`lost+found`の削除権限もなかったため。`--no-owner --no-group`と`--exclude`の追加で修正し、別PRで再検証)
-- [ ] 6.2 NAS側の共有フォルダに、DBスナップショット・`attachments/`・`sends/`・`rsa_key.pem`・`rsa_key.pub.pem`・`config.json`が転送されており、`icon_cache/`が含まれていないことを確認する(実地確認で、Vaultwardenの管理パネル「データベースをバックアップ」機能が作る`db_<timestamp>.sqlite3`が除外パターンをすり抜けて転送されることが判明。`db_*.sqlite3`除外を追加した別PRで再検証が必要。`rsa_key.pub.pem`/`config.json`/`attachments/`/`sends/`がデータディレクトリに実在するかも要確認)
+- [ ] 6.2 NAS側の共有フォルダに、DBスナップショット・`attachments/`・`sends/`・`rsa_key.pem`・`rsa_key.pub.pem`・`config.json`が転送されており、`icon_cache/`が含まれていないことを確認する(`rsa_key.pub.pem`/`config.json`/`attachments/`/`sends/`はまだ未使用の機能のためデータディレクトリに実在せず、これは想定通りと確認済み。`db_<timestamp>.sqlite3`除外パターン追加後も、ステージング領域に旧実行分が残り続けて消えないバグが発覚: rsyncの`--delete`は除外パターン一致ファイルを削除しないため。ミラー処理に`--delete-excluded`を追加した別PRで再検証が必要)
 - [ ] 6.3 バックアップ実行中もVaultwardenへのアクセス(ログイン等)が問題なくできることを確認する
 - [ ] 6.4 2回目以降の実行で、NAS側のスナップショットが設定通りのタイミング・世代数で作成されていることを確認する
 

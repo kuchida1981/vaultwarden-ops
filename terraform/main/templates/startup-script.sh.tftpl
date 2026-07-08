@@ -151,7 +151,12 @@ sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$STAGING_DIR/db.sqlite3'"
 # naming pattern Vaultwarden's own admin-panel "Backup database" button
 # writes into the data dir, which would otherwise pile up here redundantly
 # alongside our own snapshot mechanism.
-rsync -a --delete \
+# --delete-excluded: plain --delete leaves already-present files alone if
+# they match an --exclude pattern, so a file copied into staging before an
+# exclude was added would linger there (and keep being pushed to the NAS)
+# forever. This makes exclude changes self-healing on the next run instead
+# of requiring a manual cleanup.
+rsync -a --delete --delete-excluded \
   --exclude 'db.sqlite3*' --exclude 'db_*.sqlite3' \
   --exclude 'icon_cache/' \
   "$DATA_DIR/" "$STAGING_DIR/"
