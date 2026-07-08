@@ -153,8 +153,17 @@ rsync -a --delete \
 
 # Generation/retention is handled entirely by the NAS's own Btrfs snapshot
 # schedule; this is a plain overwrite sync of the latest state.
+#
+# --no-owner --no-group: the NAS-side rsyncd account has no privilege to
+# chgrp/chown, and preserving the VM's uid/gid on the NAS makes no sense
+# across two unrelated user namespaces anyway.
+# --exclude '#recycle'/'@eaDir'/'lost+found': Synology-managed special
+# directories the backup account can't modify; without excluding them,
+# --delete tries (and fails) to remove them since they're absent from source.
 RSYNC_PASSWORD="$(cat "$PASSWORD_FILE")" \
-  rsync -a --delete "$STAGING_DIR/" "rsync://$NAS_USER@$NAS_HOST/$NAS_MODULE/"
+  rsync -a --no-owner --no-group --delete \
+    --exclude '#recycle' --exclude '@eaDir' --exclude 'lost+found' \
+    "$STAGING_DIR/" "rsync://$NAS_USER@$NAS_HOST/$NAS_MODULE/"
 SCRIPT
 chmod +x /opt/vaultwarden/backup.sh
 
