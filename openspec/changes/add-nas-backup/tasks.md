@@ -37,7 +37,7 @@
 ## 6. 動作確認
 
 - [x] 6.1 `systemctl start backup.service`で初回バックアップを手動トリガーし、正常終了(exit code 0)することを確認する(初回実行はexit code 23で失敗。NAS側rsyncdアカウントに`chgrp`権限がなく、また`#recycle`/`lost+found`の削除権限もなかったため。`--no-owner --no-group`と`--exclude`の追加で修正し、別PRで再検証)
-- [ ] 6.2 NAS側の共有フォルダに、DBスナップショット・`attachments/`・`sends/`・`rsa_key.pem`・`rsa_key.pub.pem`・`config.json`が転送されており、`icon_cache/`が含まれていないことを確認する(`rsa_key.pub.pem`/`config.json`/`attachments/`/`sends/`はまだ未使用の機能のためデータディレクトリに実在せず、これは想定通りと確認済み。`--delete-excluded`追加後の実地確認で、今度は肝心の`db.sqlite3`自体がNASから消える副作用が発覚: ミラー処理が自分自身の除外パターンでステージング中のDBスナップショットを消してしまっていたため。sqlite3バックアップとミラー処理の実行順序を入れ替えた別PRで再検証が必要)
+- [x] 6.2 NAS側の共有フォルダに、DBスナップショット・`attachments/`・`sends/`・`rsa_key.pem`・`rsa_key.pub.pem`・`config.json`が転送されており、`icon_cache/`が含まれていないことを確認する(`db.sqlite3`・`rsa_key.pem`が正しく転送され、`db_*.sqlite3`/`db.sqlite3-wal`/`-shm`/`icon_cache/`が除外通り不在であることを確認済み。`rsa_key.pub.pem`/`config.json`/`attachments/`/`sends/`はまだ未使用の機能のためデータディレクトリに実在せず、これは想定通り)
 - [ ] 6.3 バックアップ実行中もVaultwardenへのアクセス(ログイン等)が問題なくできることを確認する
 - [ ] 6.4 2回目以降の実行で、NAS側のスナップショットが設定通りのタイミング・世代数で作成されていることを確認する
 
