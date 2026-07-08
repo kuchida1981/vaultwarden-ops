@@ -12,7 +12,7 @@
 - `docker-compose.yml`のvaultwardenサービスにSMTP関連環境変数(`SMTP_HOST`/`SMTP_PORT`/`SMTP_SECURITY`/`SMTP_USERNAME`/`SMTP_PASSWORD`/`SMTP_FROM`/`SMTP_FROM_NAME`)を追加する
 - startup-scriptで新シークレットをfetchし、`.env`に書き込む
 - **招待フローの変更**: `/admin`パネルからの招待が、これまでの「リンクを発行して手動でLINE等に共有」から「メールアドレスを入力すると招待メールが自動送信される」に変わる(招待制サインアップという方針自体は変わらない)
-- README更新: 「SMTPは導入しない」の記述を撤回。SPFレコードをBrevoの指定値でu-rei.comのDNSに追加する前提作業を明記。招待手順(セットアップ手順8)を自動送信の内容に書き換え
+- README更新: 「SMTPは導入しない」の記述を撤回。招待手順(セットアップ手順8)を自動送信の内容に書き換え
 
 ## Capabilities
 
@@ -30,5 +30,5 @@
 - `terraform/main/compute.tf`, `terraform/main/templates/startup-script.sh.tftpl`: 新シークレットのfetchと`.env`書き込みを追加
 - `vaultwarden/docker-compose.yml`: SMTP関連環境変数を追加
 - `README.md`: SMTP方針の記述撤回、SPFレコード追加の前提作業の明記、招待手順の書き換え
-- GitHub Actions Secrets: `BREVO_SMTP_USERNAME`・`BREVO_SMTP_PASSWORD`等の新規登録が必要(ユーザーの手動作業)
-- 前提作業(ユーザー側、terraform適用前に完了させる必要あり): BrevoでSMTP用ログイン/キーを発行、BrevoのSPF値をu-rei.comのDNSに追加
+- GitHub Actions Secrets: `BREVO_SMTP_USERNAME`・`BREVO_SMTP_PASSWORD`の新規登録が必要(ユーザーの手動作業)
+- 前提作業(ユーザー側): BrevoでSMTP用ログイン/キーを発行し、送信元アドレス`vaultwarden@u-rei.com`をBrevoのsenderとして登録済み。DKIM(CNAME委任)・DMARC(`p=none`)も設定済みで確認済み。SPFはBrevoがEnvelope Fromに自社ドメイン(`bounces.brevo.com`等)を使うためu-rei.com側への追加は不要と判明(Brevoのドメイン認証画面にSPFの項目が表示されないのはこのため)
