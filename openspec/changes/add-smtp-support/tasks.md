@@ -3,7 +3,7 @@
 - [x] 1.1 BrevoでSMTP用のログイン/SMTPキーを発行する(ホスト`smtp-relay.brevo.com`・ポート`587`を確認済み)
 - [x] 1.2 送信専用の`SMTP_FROM`アドレス(`vaultwarden@u-rei.com`)と`SMTP_FROM_NAME`(`vaultwarden`)を決め、Brevoのsenderとして登録する
 - [x] 1.3 SPFレコードの要否を確認する → Brevo利用時はEnvelope Fromに自社ドメインを使うため、u-rei.com側への追加は不要と判明(対応不要)
-- [ ] 1.4 (推奨・後回し) BrevoのSecurity → Authorized IPsに`terraform output vm_external_ip`の値を登録し、SMTPキーの送信元IP制限を有効化する。VMの静的IPと相性が良い追加の防御層(このchangeの必須要件ではない)
+- [x] 1.4 (推奨・後回し) BrevoのSecurity → Authorized IPsに`terraform output vm_external_ip`の値を登録し、SMTPキーの送信元IP制限を有効化する。VMの静的IPと相性が良い追加の防御層(このchangeの必須要件ではない)(`34.84.31.142`を登録し有効化。設定後のメール送信も成功を確認済み)
 
 ## 2. Terraform: 変数とSecret Manager
 
@@ -25,15 +25,15 @@
 
 - [x] 5.1 `.github/workflows/terraform-plan.yml`・`terraform-apply.yml`に`TF_VAR_smtp_username`/`TF_VAR_smtp_password`を追加し、既存の`tailscale_oauth_client_id/secret`と同じ配線でGitHub Secretsから渡す(tasks.md未記載だった抜けを実装時に発見・追加)
 - [x] 5.2 GitHub Actions Secretsに`BREVO_SMTP_USERNAME`・`BREVO_SMTP_PASSWORD`を登録する(ホスト/ポート/From等はterraform変数のデフォルト値で足りるため登録不要)
-- [ ] 5.3 PRを作成し`terraform plan`で差分を確認する(新規リソースのみで既存リソースの破壊的変更が無いことを確認)
-- [ ] 5.4 `main`マージ後、GitHub Environmentの承認を経て`terraform apply`を実行する
-- [ ] 5.5 VM上でvaultwardenコンテナが新しい環境変数で再作成されたことを確認する
+- [x] 5.3 PRを作成し`terraform plan`で差分を確認する(6 to add, 1 to change, 0 to destroyで想定通り。新規リソースのみで既存リソースの破壊的変更なしを確認)
+- [x] 5.4 `main`マージ後、GitHub Environmentの承認を経て`terraform apply`を実行する
+- [x] 5.5 VM上でvaultwardenコンテナが新しい環境変数で再作成されたことを確認する(`google_metadata_script_runner startup`でstartup-script再実行、`/admin`のSMTP設定欄に値が反映されていることを確認済み)
 
 ## 6. 動作確認
 
-- [ ] 6.1 `/admin`パネルから自分宛にテスト招待を送り、招待メールが実際に届くことを確認する(迷惑フォルダに入っていないかも確認)
-- [ ] 6.2 送信されたメールのヘッダーでSPF/DKIM/DMARCがすべてPASSしていることを確認する
-- [ ] 6.3 パスワードヒントメール・新規デバイスログイン通知など、他のメール系機能が動作することを確認する
+- [x] 6.1 `/admin`パネルから自分宛にテスト招待を送り、招待メールが実際に届くことを確認する(迷惑フォルダに入っていないかも確認)
+- [x] 6.2 送信されたメールのヘッダーでSPF/DKIM/DMARCがすべてPASSしていることを確認する(dkim=pass header.s=brevo2, spf=pass(Brevo側ドメイン), dmarc=pass header.from=u-rei.comを確認済み)
+- [x] 6.3 パスワードヒントメール・新規デバイスログイン通知など、他のメール系機能が動作することを確認する(いずれも確認済み)
 
 ## 7. README更新
 
