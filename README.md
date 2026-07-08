@@ -5,7 +5,7 @@
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
 - SSH / Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
 - データバックアップ: 自宅Synology NASへ、Tailscale経由のrsyncデーモンで毎日プッシュ同期(下記参照)。世代管理はNAS側のBtrfsスナップショットに委譲
-- 稼働監視・アラートは今回のスコープ外(ロードマップ、下記参照)
+- 稼働監視・アラート: 別ホストで運用しているn8nのワークフロー(本リポジトリの管理外、手動構築)が`https://vaultwarden.u-rei.com/alive`を定期的にポーリングし、失敗時にVaultwarden専用のDiscordチャンネルへ通知する
 - メール送信はBrevoのSMTPリレーを使用(招待メール・パスワードヒント・新規デバイス通知等)。マスターパスワードを完全に忘れた場合の保管庫復旧(Organization Account Recovery / Emergency Access)は別スコープ
 
 ## アーキテクチャ
@@ -180,7 +180,6 @@ tailscale ping vaultwarden   # または `tailscale status` でIPを確認
 
 ## ロードマップ(本リポジトリの現時点のスコープ外)
 
-- 稼働監視・アラート(Cloud Monitoring Uptime Check)
 - 保管庫の復旧手段(Organization Account Recovery / Emergency Access)。マスターパスワードを完全に忘れた場合、ゼロ知識暗号化のためSMTPだけでは救済できない
 
 ## ディレクトリ構成
