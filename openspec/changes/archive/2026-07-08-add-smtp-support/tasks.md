@@ -3,7 +3,7 @@
 - [x] 1.1 BrevoでSMTP用のログイン/SMTPキーを発行する(ホスト`smtp-relay.brevo.com`・ポート`587`を確認済み)
 - [x] 1.2 送信専用の`SMTP_FROM`アドレス(`vaultwarden@u-rei.com`)と`SMTP_FROM_NAME`(`vaultwarden`)を決め、Brevoのsenderとして登録する
 - [x] 1.3 SPFレコードの要否を確認する → Brevo利用時はEnvelope Fromに自社ドメインを使うため、u-rei.com側への追加は不要と判明(対応不要)
-- [x] 1.4 (推奨・後回し) BrevoのSecurity → Authorized IPsに`terraform output vm_external_ip`の値を登録し、SMTPキーの送信元IP制限を有効化する。VMの静的IPと相性が良い追加の防御層(このchangeの必須要件ではない)(`34.84.31.142`を登録し有効化。設定後のメール送信も成功を確認済み)
+- [x] 1.4 (推奨・後回し) BrevoのSecurity → Authorized IPsに`terraform output vm_external_ip`の値を登録し、SMTPキーの送信元IP制限を有効化する。VMの静的IPと相性が良い追加の防御層(このchangeの必須要件ではない)(VMの静的IPを登録し有効化。設定後のメール送信も成功を確認済み)
 
 ## 2. Terraform: 変数とSecret Manager
 
