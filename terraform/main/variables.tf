@@ -42,3 +42,45 @@ variable "tailscale_oauth_client_secret" {
   type        = string
   sensitive   = true
 }
+
+variable "smtp_host" {
+  description = "SMTP relay host Vaultwarden sends mail through."
+  type        = string
+  default     = "smtp-relay.brevo.com"
+}
+
+variable "smtp_port" {
+  description = "SMTP relay port."
+  type        = string
+  default     = "587"
+}
+
+variable "smtp_security" {
+  description = "Vaultwarden SMTP_SECURITY mode (starttls, force_tls, or off)."
+  type        = string
+  default     = "starttls"
+}
+
+variable "smtp_from" {
+  description = "Send-only From address for Vaultwarden-originated mail."
+  type        = string
+  default     = "vaultwarden@u-rei.com"
+}
+
+variable "smtp_from_name" {
+  description = "Display name used alongside smtp_from."
+  type        = string
+  default     = "vaultwarden"
+}
+
+variable "smtp_username" {
+  description = "SMTP login issued by the mail relay provider (Brevo)."
+  type        = string
+  sensitive   = true
+}
+
+variable "smtp_password" {
+  description = "SMTP key/password issued by the mail relay provider (Brevo)."
+  type        = string
+  sensitive   = true
+}

@@ -21,3 +21,17 @@ resource "google_secret_manager_secret_iam_member" "tailscale_authkey_access" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.vm_runtime.email}"
 }
+
+resource "google_secret_manager_secret_iam_member" "smtp_username_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.smtp_username.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.vm_runtime.email}"
+}
+
+resource "google_secret_manager_secret_iam_member" "smtp_password_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.smtp_password.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.vm_runtime.email}"
+}

@@ -29,6 +29,7 @@
 - `terraform/main/variables.tf`: SMTP関連のsensitive変数(ホスト/ポート/ユーザー名/パスワード/From)を追加
 - `terraform/main/compute.tf`, `terraform/main/templates/startup-script.sh.tftpl`: 新シークレットのfetchと`.env`書き込みを追加
 - `vaultwarden/docker-compose.yml`: SMTP関連環境変数を追加
-- `README.md`: SMTP方針の記述撤回、SPFレコード追加の前提作業の明記、招待手順の書き換え
+- `.github/workflows/terraform-plan.yml`, `terraform-apply.yml`: 新しいsensitive変数をGitHub SecretsからTF_VARとして渡す配線を追加
+- `README.md`: SMTP方針の記述撤回、招待手順の書き換え
 - GitHub Actions Secrets: `BREVO_SMTP_USERNAME`・`BREVO_SMTP_PASSWORD`の新規登録が必要(ユーザーの手動作業)
 - 前提作業(ユーザー側): BrevoでSMTP用ログイン/キーを発行し、送信元アドレス`vaultwarden@u-rei.com`をBrevoのsenderとして登録済み。DKIM(CNAME委任)・DMARC(`p=none`)も設定済みで確認済み。SPFはBrevoがEnvelope Fromに自社ドメイン(`bounces.brevo.com`等)を使うためu-rei.com側への追加は不要と判明(Brevoのドメイン認証画面にSPFの項目が表示されないのはこのため)
