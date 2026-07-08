@@ -56,6 +56,8 @@ jobs:
           TF_VAR_tailscale_tailnet: ${{ secrets.TAILSCALE_TAILNET }}
           TF_VAR_tailscale_oauth_client_id: ${{ secrets.TAILSCALE_OAUTH_CLIENT_ID }}
           TF_VAR_tailscale_oauth_client_secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
+          TF_VAR_smtp_username: ${{ secrets.BREVO_SMTP_USERNAME }}
+          TF_VAR_smtp_password: ${{ secrets.BREVO_SMTP_PASSWORD }}
         run: terraform plan -no-color -out=tfplan | tee plan.txt
 
       - name: Comment plan on PR
