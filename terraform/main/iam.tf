@@ -35,3 +35,10 @@ resource "google_secret_manager_secret_iam_member" "smtp_password_access" {
   role      = "roles/secretmanager.secretAccessor"
   member    = "serviceAccount:${google_service_account.vm_runtime.email}"
 }
+
+resource "google_secret_manager_secret_iam_member" "nas_backup_password_access" {
+  project   = var.project_id
+  secret_id = google_secret_manager_secret.nas_backup_password.secret_id
+  role      = "roles/secretmanager.secretAccessor"
+  member    = "serviceAccount:${google_service_account.vm_runtime.email}"
+}

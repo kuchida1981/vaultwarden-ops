@@ -40,18 +40,22 @@ resource "google_compute_instance" "vaultwarden" {
 
   metadata = {
     startup-script = templatefile("${path.module}/templates/startup-script.sh.tftpl", {
-      project_id              = var.project_id
-      domain                  = var.domain
-      github_repo             = var.github_repo
-      admin_secret_id         = google_secret_manager_secret.admin_token.secret_id
-      ts_secret_id            = google_secret_manager_secret.tailscale_authkey.secret_id
-      smtp_host               = var.smtp_host
-      smtp_port               = var.smtp_port
-      smtp_security           = var.smtp_security
-      smtp_from               = var.smtp_from
-      smtp_from_name          = var.smtp_from_name
-      smtp_username_secret_id = google_secret_manager_secret.smtp_username.secret_id
-      smtp_password_secret_id = google_secret_manager_secret.smtp_password.secret_id
+      project_id                    = var.project_id
+      domain                        = var.domain
+      github_repo                   = var.github_repo
+      admin_secret_id               = google_secret_manager_secret.admin_token.secret_id
+      ts_secret_id                  = google_secret_manager_secret.tailscale_authkey.secret_id
+      smtp_host                     = var.smtp_host
+      smtp_port                     = var.smtp_port
+      smtp_security                 = var.smtp_security
+      smtp_from                     = var.smtp_from
+      smtp_from_name                = var.smtp_from_name
+      smtp_username_secret_id       = google_secret_manager_secret.smtp_username.secret_id
+      smtp_password_secret_id       = google_secret_manager_secret.smtp_password.secret_id
+      nas_backup_host               = var.nas_backup_host
+      nas_backup_module             = var.nas_backup_module
+      nas_backup_username           = var.nas_backup_username
+      nas_backup_password_secret_id = google_secret_manager_secret.nas_backup_password.secret_id
     })
   }
 
@@ -60,9 +64,11 @@ resource "google_compute_instance" "vaultwarden" {
     google_secret_manager_secret_version.tailscale_authkey,
     google_secret_manager_secret_version.smtp_username,
     google_secret_manager_secret_version.smtp_password,
+    google_secret_manager_secret_version.nas_backup_password,
     google_secret_manager_secret_iam_member.admin_token_access,
     google_secret_manager_secret_iam_member.tailscale_authkey_access,
     google_secret_manager_secret_iam_member.smtp_username_access,
     google_secret_manager_secret_iam_member.smtp_password_access,
+    google_secret_manager_secret_iam_member.nas_backup_password_access,
   ]
 }

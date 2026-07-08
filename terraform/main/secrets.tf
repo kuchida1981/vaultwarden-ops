@@ -65,3 +65,20 @@ resource "google_secret_manager_secret_version" "smtp_password" {
   secret      = google_secret_manager_secret.smtp_password.id
   secret_data = var.smtp_password
 }
+
+# rsync daemon password for the NAS backup account, issued externally on the
+# NAS itself (same externally-issued-credential reasoning as smtp_username/
+# password above), persisted here so the VM can fetch it at boot.
+resource "google_secret_manager_secret" "nas_backup_password" {
+  project   = var.project_id
+  secret_id = "vaultwarden-nas-backup-password"
+
+  replication {
+    auto {}
+  }
+}
+
+resource "google_secret_manager_secret_version" "nas_backup_password" {
+  secret      = google_secret_manager_secret.nas_backup_password.id
+  secret_data = var.nas_backup_password
+}

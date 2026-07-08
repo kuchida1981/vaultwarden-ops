@@ -45,4 +45,5 @@ jobs:
           TF_VAR_tailscale_oauth_client_secret: ${{ secrets.TAILSCALE_OAUTH_CLIENT_SECRET }}
           TF_VAR_smtp_username: ${{ secrets.BREVO_SMTP_USERNAME }}
           TF_VAR_smtp_password: ${{ secrets.BREVO_SMTP_PASSWORD }}
+          TF_VAR_nas_backup_password: ${{ secrets.NAS_BACKUP_PASSWORD }}
         run: terraform apply -no-color -auto-approve
