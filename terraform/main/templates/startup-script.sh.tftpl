@@ -13,9 +13,13 @@ SMTP_FROM="${smtp_from}"
 SMTP_FROM_NAME="${smtp_from_name}"
 SMTP_USERNAME_SECRET_ID="${smtp_username_secret_id}"
 SMTP_PASSWORD_SECRET_ID="${smtp_password_secret_id}"
+NAS_BACKUP_HOST="${nas_backup_host}"
+NAS_BACKUP_MODULE="${nas_backup_module}"
+NAS_BACKUP_USERNAME="${nas_backup_username}"
+NAS_BACKUP_PASSWORD_SECRET_ID="${nas_backup_password_secret_id}"
 
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl gnupg jq git unattended-upgrades
+apt-get install -y --no-install-recommends ca-certificates curl gnupg jq git unattended-upgrades rsync sqlite3
 
 # --- automatic security updates ---
 cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
@@ -115,3 +119,71 @@ chmod 600 /opt/vaultwarden/.env
 
 cd "$APP_DIR/vaultwarden"
 docker compose --env-file /opt/vaultwarden/.env up -d
+
+# --- NAS backup: daily systemd timer pushing to a Synology rsync daemon ---
+# Auth is a plain rsyncd password rather than an SSH key: the transfer never
+# leaves the Tailscale WireGuard tunnel, so rsync's lack of its own
+# encryption is not a real exposure here, and it avoids managing an SSH key
+# lifecycle for a device (the NAS) this repo doesn't otherwise administer.
+NAS_BACKUP_PASSWORD=$(fetch_secret "$NAS_BACKUP_PASSWORD_SECRET_ID")
+install -m 600 /dev/null /opt/vaultwarden/nas-backup-password
+printf '%s' "$NAS_BACKUP_PASSWORD" > /opt/vaultwarden/nas-backup-password
+
+cat >/opt/vaultwarden/backup.sh <<'SCRIPT'
+#!/bin/bash
+set -euo pipefail
+
+DATA_DIR=/opt/vaultwarden/data
+STAGING_DIR=/opt/vaultwarden/backup-staging
+PASSWORD_FILE=/opt/vaultwarden/nas-backup-password
+
+mkdir -p "$STAGING_DIR"
+
+# SQLite is in WAL mode, so a plain copy of db.sqlite3 mid-write can be torn.
+# The online backup API produces a consistent snapshot without stopping
+# Vaultwarden.
+sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$STAGING_DIR/db.sqlite3'"
+
+# Mirror everything else (attachments, sends, rsa_key*.pem, config.json).
+# icon_cache/ is excluded: it's a regenerable cache, not worth the transfer.
+rsync -a --delete \
+  --exclude 'db.sqlite3' --exclude 'db.sqlite3-wal' --exclude 'db.sqlite3-shm' \
+  --exclude 'icon_cache/' \
+  "$DATA_DIR/" "$STAGING_DIR/"
+
+# Generation/retention is handled entirely by the NAS's own Btrfs snapshot
+# schedule; this is a plain overwrite sync of the latest state.
+RSYNC_PASSWORD="$(cat "$PASSWORD_FILE")" \
+  rsync -a --delete "$STAGING_DIR/" "rsync://$NAS_USER@$NAS_HOST/$NAS_MODULE/"
+SCRIPT
+chmod +x /opt/vaultwarden/backup.sh
+
+cat >/etc/systemd/system/backup.service <<UNIT
+[Unit]
+Description=Backup Vaultwarden data to NAS
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+Environment=NAS_HOST=$NAS_BACKUP_HOST
+Environment=NAS_MODULE=$NAS_BACKUP_MODULE
+Environment=NAS_USER=$NAS_BACKUP_USERNAME
+ExecStart=/opt/vaultwarden/backup.sh
+UNIT
+
+cat >/etc/systemd/system/backup.timer <<'UNIT'
+[Unit]
+Description=Daily Vaultwarden backup to NAS
+
+[Timer]
+OnCalendar=*-*-* 03:00:00
+RandomizedDelaySec=1800
+Persistent=true
+
+[Install]
+WantedBy=timers.target
+UNIT
+
+systemctl daemon-reload
+systemctl enable --now backup.timer

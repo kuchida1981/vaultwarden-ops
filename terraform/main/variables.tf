@@ -84,3 +84,27 @@ variable "smtp_password" {
   type        = string
   sensitive   = true
 }
+
+variable "nas_backup_host" {
+  description = "Tailscale MagicDNS hostname (or IP) of the NAS the VM backs up to."
+  type        = string
+  default     = "synology-nas"
+}
+
+variable "nas_backup_module" {
+  description = "rsync daemon module name on the NAS that receives the backup. Synology's built-in rsync server names the module after the shared folder itself, with no separate module-naming step."
+  type        = string
+  default     = "vaultwarden-backups"
+}
+
+variable "nas_backup_username" {
+  description = "rsync daemon account name configured on the NAS for backups."
+  type        = string
+  default     = "vaultwarden"
+}
+
+variable "nas_backup_password" {
+  description = "rsync daemon password for the NAS backup account."
+  type        = string
+  sensitive   = true
+}
