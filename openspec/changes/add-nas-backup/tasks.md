@@ -36,7 +36,7 @@
 
 ## 6. 動作確認
 
-- [ ] 6.1 `systemctl start backup.service`で初回バックアップを手動トリガーし、正常終了(exit code 0)することを確認する
+- [x] 6.1 `systemctl start backup.service`で初回バックアップを手動トリガーし、正常終了(exit code 0)することを確認する(初回実行はexit code 23で失敗。NAS側rsyncdアカウントに`chgrp`権限がなく、また`#recycle`/`lost+found`の削除権限もなかったため。`--no-owner --no-group`と`--exclude`の追加で修正し、別PRで再検証)
 - [ ] 6.2 NAS側の共有フォルダに、DBスナップショット・`attachments/`・`sends/`・`rsa_key.pem`・`rsa_key.pub.pem`・`config.json`が転送されており、`icon_cache/`が含まれていないことを確認する
 - [ ] 6.3 バックアップ実行中もVaultwardenへのアクセス(ログイン等)が問題なくできることを確認する
 - [ ] 6.4 2回目以降の実行で、NAS側のスナップショットが設定通りのタイミング・世代数で作成されていることを確認する
