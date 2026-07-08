@@ -139,27 +139,31 @@ PASSWORD_FILE=/opt/vaultwarden/nas-backup-password
 
 mkdir -p "$STAGING_DIR"
 
-# SQLite is in WAL mode, so a plain copy of db.sqlite3 mid-write can be torn.
-# The online backup API produces a consistent snapshot without stopping
-# Vaultwarden.
-sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$STAGING_DIR/db.sqlite3'"
-
-# Mirror everything else (attachments, sends, rsa_key*.pem, config.json).
-# icon_cache/ is excluded: it's a regenerable cache, not worth the transfer.
-# db.sqlite3* (the live DB and its -wal/-shm) is excluded: the consistent
-# snapshot above replaces it. db_*.sqlite3 is also excluded: that's the
-# naming pattern Vaultwarden's own admin-panel "Backup database" button
-# writes into the data dir, which would otherwise pile up here redundantly
-# alongside our own snapshot mechanism.
+# Mirror everything except the DB (attachments, sends, rsa_key*.pem,
+# config.json). icon_cache/ is excluded: it's a regenerable cache, not
+# worth the transfer. db.sqlite3* (the live DB and its -wal/-shm) is
+# excluded: the consistent snapshot created below replaces it. db_*.sqlite3
+# is also excluded: that's the naming pattern Vaultwarden's own admin-panel
+# "Backup database" button writes into the data dir, which would otherwise
+# pile up here redundantly alongside our own snapshot mechanism.
 # --delete-excluded: plain --delete leaves already-present files alone if
 # they match an --exclude pattern, so a file copied into staging before an
 # exclude was added would linger there (and keep being pushed to the NAS)
 # forever. This makes exclude changes self-healing on the next run instead
 # of requiring a manual cleanup.
+#
+# This must run BEFORE the sqlite3 snapshot below, not after: since
+# db.sqlite3* is excluded here, --delete-excluded would immediately wipe out
+# a snapshot that was already sitting in staging from a prior step.
 rsync -a --delete --delete-excluded \
   --exclude 'db.sqlite3*' --exclude 'db_*.sqlite3' \
   --exclude 'icon_cache/' \
   "$DATA_DIR/" "$STAGING_DIR/"
+
+# SQLite is in WAL mode, so a plain copy of db.sqlite3 mid-write can be torn.
+# The online backup API produces a consistent snapshot without stopping
+# Vaultwarden.
+sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$STAGING_DIR/db.sqlite3'"
 
 # Generation/retention is handled entirely by the NAS's own Btrfs snapshot
 # schedule; this is a plain overwrite sync of the latest state.
