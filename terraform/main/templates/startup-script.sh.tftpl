@@ -146,8 +146,13 @@ sqlite3 "$DATA_DIR/db.sqlite3" ".backup '$STAGING_DIR/db.sqlite3'"
 
 # Mirror everything else (attachments, sends, rsa_key*.pem, config.json).
 # icon_cache/ is excluded: it's a regenerable cache, not worth the transfer.
+# db.sqlite3* (the live DB and its -wal/-shm) is excluded: the consistent
+# snapshot above replaces it. db_*.sqlite3 is also excluded: that's the
+# naming pattern Vaultwarden's own admin-panel "Backup database" button
+# writes into the data dir, which would otherwise pile up here redundantly
+# alongside our own snapshot mechanism.
 rsync -a --delete \
-  --exclude 'db.sqlite3' --exclude 'db.sqlite3-wal' --exclude 'db.sqlite3-shm' \
+  --exclude 'db.sqlite3*' --exclude 'db_*.sqlite3' \
   --exclude 'icon_cache/' \
   "$DATA_DIR/" "$STAGING_DIR/"
 
