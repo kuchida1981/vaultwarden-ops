@@ -16,29 +16,37 @@ resource "tailscale_tailnet_key" "vm" {
 }
 
 # WARNING: `tailscale_acl` manages the tailnet's *entire* ACL policy file as
-# a single resource. Applying this will overwrite whatever ACL currently
-# exists for this tailnet. Before the first `terraform apply`, check the
-# current policy at https://login.tailscale.com/admin/acl/file and merge in
-# any custom rules you already rely on (e.g. anything specific to the NAS).
+# a single resource - the Tailscale API has no partial-update endpoint, so
+# whichever Terraform state applies this resource last wins and overwrites
+# the whole file. This repo is the sole owner of this resource for the
+# tailnet: n8n-ops (a sibling repo sharing this tailnet) intentionally does
+# NOT declare a `tailscale_acl` resource of its own - it only manages its
+# own `tailscale_tailnet_key`, whose `tag:n8n-server` must already exist in
+# the tagOwners map below before that key can be requested. This repo
+# previously duplicated the whole ACL as a second resource in n8n-ops,
+# which meant either repo applying could silently drop the other's tags -
+# see n8n-ops issue "vaultwarden-ops' tailscale.tf lacked tag:n8n-server".
+# Consolidating ownership here removes that race entirely: adding a new
+# tailnet-connected service now means a PR to *this* file, not a
+# repo-to-repo content sync.
 #
 # The policy below intentionally mirrors Tailscale's zero-config default
 # (accept all traffic between all devices) so existing devices, including
-# the NAS, keep working exactly as before. The only new behavior is: (1) a
-# tag owner for tag:vaultwarden-server, and (2) an `ssh` block that restricts
-# `tailscale ssh` into that tag to the tailnet admin only.
+# the NAS, keep working exactly as before. On top of that default: (1) tag
+# owners for tag:vaultwarden-server and tag:n8n-server, and (2) `ssh` blocks
+# that restrict `tailscale ssh` into either tag to the tailnet admin only.
 resource "tailscale_acl" "this" {
   # The provider refuses to blindly clobber a hand-edited, non-default ACL
   # (safety guard: "You are trying to overwrite a non-default policy").
-  # That's expected here: this tailnet's policy was already manually edited
-  # (per the README bootstrap step, to pre-define tag:vaultwarden-server
-  # before creating the OAuth client) before this resource was ever applied.
-  # The content below was reviewed to be a superset of that manual edit, so
-  # overwriting it is intentional, not accidental.
+  # That's expected here: this tailnet's policy already has this resource's
+  # own prior content applied, so overwriting it is intentional, not
+  # accidental.
   overwrite_existing_content = true
 
   acl = jsonencode({
     tagOwners = {
       "tag:vaultwarden-server" = ["autogroup:admin"]
+      "tag:n8n-server"         = ["autogroup:admin"]
     }
     acls = [
       {
@@ -52,6 +60,12 @@ resource "tailscale_acl" "this" {
         action = "check"
         src    = ["autogroup:admin"]
         dst    = ["tag:vaultwarden-server"]
+        users  = ["autogroup:nonroot", "root"]
+      },
+      {
+        action = "check"
+        src    = ["autogroup:admin"]
+        dst    = ["tag:n8n-server"]
         users  = ["autogroup:nonroot", "root"]
       }
     ]
