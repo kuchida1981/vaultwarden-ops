@@ -1,49 +1,52 @@
 # vaultwarden-hosting
 
-自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(東京リージョン)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
+[日本語](README.ja.md)
 
-- 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
-- SSH / Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
-- データバックアップ: 自宅Synology NASへ、Tailscale経由のrsyncデーモンで毎日プッシュ同期(下記参照)。世代管理はNAS側のBtrfsスナップショットに委譲
-- 稼働監視・アラート: 別ホストで運用しているn8nのワークフロー(本リポジトリの管理外、手動構築)が`https://vaultwarden.u-rei.com/alive`を定期的にポーリングし、失敗時にVaultwarden専用のDiscordチャンネルへ通知する
-- メール送信はBrevoのSMTPリレーを使用(招待メール・パスワードヒント・新規デバイス通知等)。マスターパスワードを完全に忘れた場合の保管庫復旧(Organization Account Recovery / Emergency Access)は別スコープ
+A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (Tokyo region). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
 
-## アーキテクチャ
+- Public URL: `https://vaultwarden.u-rei.com` (family members access it normally from here)
+- SSH / Vaultwarden's `/admin` panel: only reachable via the Tailscale tailnet
+- Data backup: pushed daily to a home Synology NAS via an rsync daemon over Tailscale (see below). Generation management is delegated to Btrfs snapshots on the NAS side
+- Uptime monitoring / alerting: an n8n workflow running on a separate host (not managed by this repository, built manually) periodically polls `https://vaultwarden.u-rei.com/alive` and notifies a dedicated Vaultwarden Discord channel on failure
+- Outbound email uses Brevo's SMTP relay (invitation emails, password hints, new device notifications, etc.). Vault recovery when the master password is completely forgotten (Organization Account Recovery / Emergency Access) is out of scope
+
+## Architecture
 
 ```
-                         インターネット (誰でも)
-                                │ 443 のみ
+                         Internet (anyone)
+                                │ 443 only
                                 ▼
                     ┌───────────────────────────┐
                     │  GCE VM (e2-micro)          │
                     │  asia-northeast1, Debian13  │
                     │  ┌───────────────────────┐  │
-                    │  │ Caddy (TLS終端)         │  │
+                    │  │ Caddy (TLS termination) │  │
                     │  │  / → Vaultwarden        │  │
-                    │  │  /admin → tailnetのみ    │  │
+                    │  │  /admin → tailnet only  │  │
                     │  └───────────────────────┘  │
-                    │  data disk: 専用Persistent   │
-                    │  Disk (VMと独立ライフサイクル) │
+                    │  data disk: dedicated        │
+                    │  Persistent Disk (lifecycle  │
+                    │  independent of the VM)      │
                     └───────────────┬───────────────┘
                                     │ Tailscale (WireGuard)
                                     ▼
-                         SSHはtailscale sshのみ
-                     (公開ファイアウォールで22番は非公開)
+                        SSH only via tailscale ssh
+                    (port 22 is not exposed publicly)
 ```
 
-Terraformは`terraform/bootstrap`(1回だけ手動apply)と`terraform/main`(GitHub Actionsが継続的にapply)の2段構成。
+Terraform is split into two stages: `terraform/bootstrap` (applied manually, once) and `terraform/main` (applied continuously by GitHub Actions).
 
-## セットアップ手順
+## Setup
 
-### 0. 前提
+### 0. Prerequisites
 
-- GCPプロジェクトが作成済みで、課金が有効化されていること
-- ローカルに`gcloud` CLIと`terraform`(>=1.6)がインストール済みで、`gcloud auth application-default login`済みであること
-- Tailscaleのtailnetに参加済みであること(このリポジトリではtailnetそのものは作成しない)
+- A GCP project already created, with billing enabled
+- `gcloud` CLI and `terraform` (>=1.6) installed locally, and `gcloud auth application-default login` already done
+- Already joined a Tailscale tailnet (this repository does not create the tailnet itself)
 
-### 1. Bootstrap(手動・最初の1回だけ)
+### 1. Bootstrap (manual, once only)
 
-`terraform/main`はGCSのリモートバックエンドとWorkload Identity Federation経由のGitHub Actions認証を前提にしているが、そのバケットとWIF Pool自体は「これから作る側」なので、ローカルから一度だけ手動で作成する。
+`terraform/main` assumes a GCS remote backend and GitHub Actions authentication via Workload Identity Federation, but since the bucket and WIF Pool themselves are "what's about to be created," they must be created manually from your local machine, just once.
 
 ```bash
 cd terraform/bootstrap
@@ -53,7 +56,7 @@ terraform apply \
   -var="github_repo=<your-github-username>/<your-repo-name>"  # must exactly match the GitHub repo, e.g. kuchida1981/vaultwarden-ops
 ```
 
-apply完了後、以下のoutputを控える(次のGitHub Secrets登録で使う):
+After the apply completes, note down the following outputs (needed for the GitHub Secrets setup below):
 
 ```bash
 terraform output
@@ -62,11 +65,11 @@ terraform output
 # terraform_ci_service_account_email
 ```
 
-### 2. Tailscale OAuthクライアントの発行(手動)
+### 2. Issue a Tailscale OAuth client (manual)
 
-`terraform/main`の`tailscale`プロバイダがACLと認証キーをコード管理するために、tailnetへのAPIアクセス権を持つOAuthクライアントが必要。
+For `terraform/main`'s `tailscale` provider to manage the ACL and auth keys as code, an OAuth client with API access to the tailnet is required.
 
-1. **先にタグを定義する**: https://login.tailscale.com/admin/acl/file を開き、`tagOwners`に以下を追記して保存する(`Auth Keys`スコープはタグ制限が必須で、そのタグがACLに未定義だと選択できない)
+1. **Define the tag first**: open https://login.tailscale.com/admin/acl/file and add the following to `tagOwners`, then save (the `Auth Keys` scope requires tag restriction, and you can't select a tag that isn't yet defined in the ACL)
 
    ```json
    "tagOwners": {
@@ -74,119 +77,119 @@ terraform output
    },
    ```
 
-   (このエントリは`terraform/main/tailscale.tf`の`tailscale_acl`リソースが後で適用する内容と同一なので、後続のTerraform applyと矛盾しない)
+   (This entry is identical to what the `tailscale_acl` resource in `terraform/main/tailscale.tf` will apply later, so it won't conflict with the subsequent Terraform apply.)
 
-2. https://login.tailscale.com/admin/settings/oauth を開く
-3. "Generate OAuth client" を実行
-4. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)。Auth Keysのタグには手順1で定義した `tag:vaultwarden-server` を選択する
-5. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
+2. Open https://login.tailscale.com/admin/settings/oauth
+3. Run "Generate OAuth client"
+4. Grant the **Policy File** (write) and **Auth Keys** (write) scopes (the API scope names are `policy_file` and `auth_keys`; the `tailscale_acl` resource uses Policy File, and the `tailscale_tailnet_key` resource uses Auth Keys). For the Auth Keys tag, select the `tag:vaultwarden-server` tag defined in step 1
+5. Note down the issued **Client ID** and **Client Secret** (the secret is shown only once)
 
-### 3. BrevoでSMTPリレーを設定(手動)
+### 3. Configure the Brevo SMTP relay (manual)
 
-VaultwardenからのメールはBrevoのSMTPリレー経由で送信する。
+Emails from Vaultwarden are sent via Brevo's SMTP relay.
 
-1. https://app.brevo.com でアカウントを作成し、送信元に使うドメイン(このリポジトリでは`u-rei.com`)を登録してドメイン認証を行う。案内されるDKIM(CNAMEレコード)・DMARC(TXTレコード)をドメインのDNSに追加する(SPFはBrevoがEnvelope Fromに自社ドメインを使うため追加不要)
-2. 送信専用アドレス(例: `vaultwarden@u-rei.com`)をBrevoの「Senders」に登録する
-3. 「SMTP & API」→「SMTP」タブで新しいSMTPキーを発行する。表示されるSMTPログインとあわせて控える(アカウントのログインメール/パスワードとは別物)
-4. 控えた値は次のGitHub Secrets登録で使う
+1. Create an account at https://app.brevo.com, register the domain you'll send from (`u-rei.com` in this repository), and complete domain authentication. Add the DKIM (CNAME record) and DMARC (TXT record) entries it provides to your domain's DNS (SPF is not needed since Brevo uses its own domain in the Envelope From)
+2. Register a send-only address (e.g. `vaultwarden@u-rei.com`) under Brevo's "Senders"
+3. Under "SMTP & API" → "SMTP" tab, issue a new SMTP key. Note it down along with the SMTP login shown (this is separate from your account login email/password)
+4. You'll need these values for the GitHub Secrets setup below
 
-### 4. NASへの定期バックアップ用Rsyncサーバーの設定(手動)
+### 4. Set up the rsync server on the NAS for periodic backups (manual)
 
-VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップショット・添付ファイル・Send・署名鍵・設定ファイル)をrsyncデーモン経由でプッシュ同期する。認証はSSH鍵ではなくrsyncd自体のパスワードのみで、通信はTailscaleのWireGuardトンネル内に閉じるため、この単純さは許容している(詳細は`openspec/changes/add-nas-backup/design.md`参照)。
+Every day, the VM push-syncs Vaultwarden's data (a consistent DB snapshot, attachments, Send, signing keys, config files) to the Synology NAS via an rsync daemon. Authentication uses only the rsyncd password itself rather than SSH keys, and since the traffic stays within the Tailscale WireGuard tunnel, this level of simplicity is considered acceptable (see `openspec/changes/add-nas-backup/design.md` for details).
 
-1. NASがVMと同じTailscale tailnetに参加していることを確認する(`tailscale ping <NASのホスト名>`で疎通確認)
-2. NASのコントロールパネル→ファイルサービス→rsyncで「Rsyncサーバー」を有効化する
-3. バックアップ受け入れ用の共有フォルダを新規作成する(Btrfs上のボリュームであること。Synologyのrsyncサーバーは共有フォルダ名がそのままrsyncのモジュール名になる)
-4. バックアップ専用アカウントを作成し、手順3の共有フォルダへの読み書き権限のみを付与する(rsync以外のサービスへのアクセスは不要)。発行したパスワードを控える
-5. 手順3の共有フォルダにスナップショットスケジュールを設定する。「保持」タブのSmart Retentionルールで、毎日7・毎週4・毎月3を目安に設定する(1日1回しかバックアップしないため「毎時」の枠は実質使われない)。「スケジュール」タブでは、VM側のバックアップ実行時刻(後述、03:00 JST頃)より後、余裕を持って1日1回(例: 04:30 JST)に設定する
-6. 控えたホスト名・共有フォルダ名(モジュール名)・アカウント名は、それぞれ`terraform/main/variables.tf`の`nas_backup_host`/`nas_backup_module`/`nas_backup_username`のデフォルト値と一致させるか、`-var`で上書きする。パスワードは次のGitHub Secrets登録で使う
+1. Confirm the NAS is on the same Tailscale tailnet as the VM (verify connectivity with `tailscale ping <NAS-hostname>`)
+2. On the NAS control panel, go to File Services → rsync and enable "Rsync Server"
+3. Create a new shared folder to receive backups (must be a volume on Btrfs; Synology's rsync server uses the shared folder name directly as the rsync module name)
+4. Create a dedicated backup account and grant it read/write access to only the shared folder from step 3 (no access to other services is needed). Note down the issued password
+5. Set up a snapshot schedule on the shared folder from step 3. Under the "Retention" tab, configure Smart Retention rules aiming for roughly 7 daily, 4 weekly, and 3 monthly snapshots (since backups only run once a day, the "hourly" slot is effectively unused). Under the "Schedule" tab, set it to run once a day (e.g. 04:30 JST) with enough margin after the VM-side backup run time (around 03:00 JST, described below)
+6. Make the noted hostname, shared folder name (module name), and account name match the default values of `nas_backup_host`/`nas_backup_module`/`nas_backup_username` in `terraform/main/variables.tf`, or override them with `-var`. You'll need the password for the GitHub Secrets setup below
 
-### 5. GitHub Actions Secretsの登録
+### 5. Register GitHub Actions Secrets
 
-このリポジトリの Settings → Secrets and variables → Actions に、以下を登録する:
+Register the following under this repository's Settings → Secrets and variables → Actions:
 
-| Secret名 | 値 |
+| Secret name | Value |
 |---|---|
-| `GCP_PROJECT_ID` | GCPプロジェクトID |
-| `GCP_WORKLOAD_IDENTITY_PROVIDER` | bootstrapのoutput `workload_identity_provider` |
-| `GCP_SERVICE_ACCOUNT_EMAIL` | bootstrapのoutput `terraform_ci_service_account_email` |
-| `TF_STATE_BUCKET` | bootstrapのoutput `state_bucket` |
-| `TAILSCALE_OAUTH_CLIENT_ID` | 手順2で発行したClient ID |
-| `TAILSCALE_OAUTH_CLIENT_SECRET` | 手順2で発行したClient Secret |
-| `TAILSCALE_TAILNET` | 自分のtailnet名(例: `example.ts.net`のexample部分、またはメールアドレス形式) |
-| `BREVO_SMTP_USERNAME` | BrevoのSMTP & API画面で発行したSMTPログイン |
-| `BREVO_SMTP_PASSWORD` | Brevoで発行したSMTPキー(アカウントログインパスワードとは別物) |
-| `NAS_BACKUP_PASSWORD` | 手順4で発行したNASのrsyncdバックアップアカウントのパスワード |
+| `GCP_PROJECT_ID` | GCP project ID |
+| `GCP_WORKLOAD_IDENTITY_PROVIDER` | bootstrap output `workload_identity_provider` |
+| `GCP_SERVICE_ACCOUNT_EMAIL` | bootstrap output `terraform_ci_service_account_email` |
+| `TF_STATE_BUCKET` | bootstrap output `state_bucket` |
+| `TAILSCALE_OAUTH_CLIENT_ID` | Client ID issued in step 2 |
+| `TAILSCALE_OAUTH_CLIENT_SECRET` | Client Secret issued in step 2 |
+| `TAILSCALE_TAILNET` | your tailnet name (e.g. the `example` part of `example.ts.net`, or an email-address form) |
+| `BREVO_SMTP_USERNAME` | SMTP login issued in Brevo's SMTP & API screen |
+| `BREVO_SMTP_PASSWORD` | SMTP key issued by Brevo (separate from the account login password) |
+| `NAS_BACKUP_PASSWORD` | password for the NAS rsyncd backup account issued in step 4 |
 
-**重要**: これらはリポジトリにコミットしない。すべてGitHub Actions Secretsとしてのみ保持する(このリポジトリは公開リポジトリなので特に注意)。
+**Important**: Never commit these to the repository. Keep them only as GitHub Actions Secrets (this repository is public, so be especially careful).
 
-### 6. GitHub Environmentの承認ゲート設定(手動)
+### 6. Configure the GitHub Environment approval gate (manual)
 
-`terraform-apply.yml`ワークフローは`environment: production`を参照しているが、実際に人間の承認待ちで停止させるprotection ruleはワークフローYAMLだけでは設定できない。このリポジトリの Settings → Environments → New environment で `production` を作成し、"Required reviewers" に自分自身(または信頼できるレビュワー)を追加する。
+The `terraform-apply.yml` workflow references `environment: production`, but the protection rule that actually pauses it for human approval cannot be set via workflow YAML alone. Under this repository's Settings → Environments → New environment, create `production` and add yourself (or a trusted reviewer) as a "Required reviewer".
 
-### 7. Terraform mainのapply
+### 7. Apply terraform/main
 
-`main`ブランチへのマージ後、GitHub Actionsの`terraform apply`ワークフローが承認待ちで停止するので、GitHub上で承認する。初回applyでVM・静的IP・ファイアウォール・データディスク・Secret Manager・Tailscale ACL/認証キーが一括作成される。
+After merging to `main`, the GitHub Actions `terraform apply` workflow will pause waiting for approval; approve it on GitHub. The first apply creates the VM, static IP, firewall rules, data disk, Secret Manager, and Tailscale ACL/auth keys all at once.
 
-**注意**: `tailscale_acl`リソースはtailnetのACLポリシー全体を1つのリソースとして管理する。初回apply前に https://login.tailscale.com/admin/acl/file で現在のACL設定を確認し、既存のカスタムルール(あれば)を`terraform/main/tailscale.tf`にマージしてから実行すること。
+**Note**: the `tailscale_acl` resource manages the entire tailnet ACL policy as a single resource. Before the first apply, check the current ACL settings at https://login.tailscale.com/admin/acl/file and merge any existing custom rules into `terraform/main/tailscale.tf` before running it.
 
-### 8. DNSレコードの手動作成
+### 8. Create the DNS record manually
 
-`u-rei.com`はレジストラのデフォルトDNSで管理しており、Terraformでは自動化していない。apply完了後、以下の出力値を使って手動でAレコードを作成する:
+`u-rei.com` is managed under the registrar's default DNS and is not automated via Terraform. After the apply completes, use the following output value to manually create an A record:
 
 ```bash
 cd terraform/main
 terraform output vm_external_ip
 ```
 
-`u-rei.com`のDNS管理画面で `vaultwarden` サブドメインのAレコードをこのIPに向けて作成する。
+In `u-rei.com`'s DNS management screen, create an A record for the `vaultwarden` subdomain pointing to this IP.
 
-### 9. adminパネルへのアクセス経路(自分の端末のみ)
+### 9. Access path to the admin panel (your device only)
 
-`vaultwarden.u-rei.com`の公開DNSはVMの公開IPを指しているため、単にブラウザで`https://vaultwarden.u-rei.com/admin`を開くと、Tailscaleに接続していても通信は公開インターネット経由になり、Caddyから見た送信元IPはTailscaleのCGNAT範囲(100.64.0.0/10)にならず403になる。tailnet経由で`/admin`に到達するには、**自分のadmin用端末でだけ**このホスト名をVMのTailscale IPに解決させる必要がある。
+Since `vaultwarden.u-rei.com`'s public DNS points to the VM's public IP, simply opening `https://vaultwarden.u-rei.com/admin` in a browser routes traffic over the public internet even while connected to Tailscale, so the source IP Caddy sees won't be in Tailscale's CGNAT range (100.64.0.0/10), resulting in a 403. To reach `/admin` via the tailnet, **only on your own admin device**, you need to resolve this hostname to the VM's Tailscale IP.
 
-もっとも簡単な方法は、自分の端末の`hosts`ファイルに1行追記すること:
+The simplest approach is to add one line to your device's `hosts` file:
 
 ```bash
-# VMのTailscale IPを確認
-tailscale ping vaultwarden   # または `tailscale status` でIPを確認
+# Check the VM's Tailscale IP
+tailscale ping vaultwarden   # or check the IP with `tailscale status`
 
-# /etc/hosts (Windowsは C:\Windows\System32\drivers\etc\hosts) に追記
+# Append to /etc/hosts (on Windows: C:\Windows\System32\drivers\etc\hosts)
 100.x.y.z  vaultwarden.u-rei.com
 ```
 
-家族の他の端末はこの設定をしない(公開ドメインのままで`/admin`には到達できない状態を維持する)。
+Don't apply this setting on family members' other devices (keep them unable to reach `/admin`, using the public domain as-is).
 
-### 10. 動作確認と家族の招待
+### 10. Verify operation and invite family members
 
-- `https://vaultwarden.u-rei.com` にアクセスし、Let's Encrypt証明書が有効になっていることを確認
-- `tailscale ssh <vm-hostname>` でVMに接続できることを確認
-- tailnet外から`/admin`にアクセスすると403になることを確認(手順9の`hosts`設定をしていない端末で確認)
-- 手順9の設定をした自分の端末から`/admin`にアクセスできることを確認
-- `/admin`から家族分のメールアドレスを入力して招待する。SMTP設定済みのため招待メールが自動送信される(迷惑フォルダも確認する)
-- VM上で`systemctl start backup.service`を実行し、NAS側の共有フォルダにバックアップが転送されることを確認する
+- Access `https://vaultwarden.u-rei.com` and confirm the Let's Encrypt certificate is valid
+- Confirm you can connect to the VM with `tailscale ssh <vm-hostname>`
+- Confirm that accessing `/admin` from outside the tailnet returns 403 (verify from a device without the step 9 `hosts` setting)
+- Confirm you can access `/admin` from your own device with the step 9 setting applied
+- Invite family members by entering their email addresses from `/admin`. Since SMTP is configured, invitation emails are sent automatically (also check the spam folder)
+- On the VM, run `systemctl start backup.service` and confirm the backup is transferred to the shared folder on the NAS
 
-## NASバックアップからのリストア手順
+## Restore procedure from NAS backup
 
-> **注意**: この手順はdesign.md記載の設計に基づく下書きであり、実機での通し検証はまだ行っていない(`openspec/changes/add-nas-backup/tasks.md`のセクション7を参照)。実際にリストアが必要になる前に、一度この手順通りに検証しておくことを強く推奨する。
+> **Note**: this procedure is a draft based on the design described in design.md, and has not yet been fully verified end-to-end on real hardware (see section 7 of `openspec/changes/add-nas-backup/tasks.md`). It's strongly recommended to verify this procedure once before an actual restore is ever needed.
 
-1. NASのBtrfsスナップショット一覧(DSMスナップショットマネージャ、または共有フォルダの`@GMT-<timestamp>`隠しディレクトリ)から復元したい世代を選ぶ
-2. VM上でVaultwardenを停止する: `docker compose -f /opt/vaultwarden/app/vaultwarden/docker-compose.yml --env-file /opt/vaultwarden/.env stop vaultwarden`(リストアは非常時作業のため、通常運用時と異なりここでは無停止化にこだわらない)
-3. 現行データを退避する: `mv /opt/vaultwarden/data /opt/vaultwarden/data.bak.$(date +%s)`(誤操作時の戻し先を確保)
-4. 選んだNASスナップショット世代から`/opt/vaultwarden/data`へrsyncまたはコピーする。この際、バックアップ時に`sqlite3 .backup`で作成した一貫性コピーを本来のファイル名`db.sqlite3`として配置し、古い`-wal`/`-shm`断片は復元先に含めない(Vaultwarden起動時に新規生成させる)
-5. 復元後のファイル所有者・パーミッションがコンテナ実行ユーザーと一致することを確認する(rootが所有していると読み取れない事故になりうる)
-6. `docker compose up -d`でVaultwardenを起動し、ログイン成功・既存添付ファイルが開けること・`/admin`のユーザー一覧が正しいことを確認する
-7. 問題なければ手順3で退避した`data.bak.*`を削除する
+1. Choose the generation to restore from the NAS's list of Btrfs snapshots (DSM Snapshot Manager, or the hidden `@GMT-<timestamp>` directory in the shared folder)
+2. Stop Vaultwarden on the VM: `docker compose -f /opt/vaultwarden/app/vaultwarden/docker-compose.yml --env-file /opt/vaultwarden/.env stop vaultwarden` (since a restore is an emergency operation, zero-downtime is not a concern here, unlike normal operations)
+3. Move aside the current data: `mv /opt/vaultwarden/data /opt/vaultwarden/data.bak.$(date +%s)` (to have a fallback in case of mistakes)
+4. Rsync or copy from the chosen NAS snapshot generation into `/opt/vaultwarden/data`. When doing so, place the consistent copy created via `sqlite3 .backup` at backup time under the original filename `db.sqlite3`, and do not include the old `-wal`/`-shm` fragments in the restored data (let Vaultwarden regenerate them on startup)
+5. Confirm that the restored files' ownership and permissions match the container's runtime user (files owned by root can become unreadable, which would be problematic)
+6. Start Vaultwarden with `docker compose up -d` and confirm successful login, that existing attachments open, and that the user list under `/admin` is correct
+7. If everything looks fine, delete the `data.bak.*` moved aside in step 3
 
-## ロードマップ(本リポジトリの現時点のスコープ外)
+## Roadmap (currently out of scope for this repository)
 
-- 保管庫の復旧手段(Organization Account Recovery / Emergency Access)。マスターパスワードを完全に忘れた場合、ゼロ知識暗号化のためSMTPだけでは救済できない
+- Vault recovery method (Organization Account Recovery / Emergency Access). If the master password is completely forgotten, zero-knowledge encryption means SMTP alone cannot help
 
-## ディレクトリ構成
+## Directory structure
 
 ```
-terraform/bootstrap/  … 手動・1回だけapply。GCS state bucket, WIF Pool, CI用SA
-terraform/main/       … GitHub Actionsが継続的にapply。VM/FW/Disk/Secret Manager/Tailscale ACL
+terraform/bootstrap/  … manual, applied once. GCS state bucket, WIF Pool, CI service account
+terraform/main/       … applied continuously by GitHub Actions. VM/firewall/disk/Secret Manager/Tailscale ACL
 vaultwarden/           … docker-compose.yml, Caddyfile
-.github/workflows/     … terraform plan(PR) / apply(main, 承認ゲート付き)
+.github/workflows/     … terraform plan (PR) / apply (main, with approval gate)
 ```
