@@ -24,9 +24,20 @@
 # Tailnet-only admin panel entry point. Bound to 127.0.0.1 by the
 # docker-compose port mapping, so nothing outside the VM can reach it
 # directly - the only way in is via `tailscale serve`, which terminates TLS
-# for https://{$DOMAIN's tailnet MagicDNS name}/admin using a
-# Tailscale-issued cert and forwards here. No source-IP check needed: the
-# tailnet boundary is enforced by `tailscale serve` itself, not by Caddy.
+# for https://{$DOMAIN's tailnet MagicDNS name}/ using a Tailscale-issued
+# cert and forwards here. No source-IP check needed: the tailnet boundary is
+# enforced by `tailscale serve` itself, not by Caddy.
+#
+# `tailscale serve` is mounted at the site root (`/`), not `/admin`: mounting
+# it at `/admin` turned out to strip that prefix before forwarding (so a
+# request for `/admin` arrived here as `/`), and even after correcting for
+# that, the admin panel's HTML references its CSS/JS/images via absolute
+# `/vw_static/...` paths - outside `/admin` - so a `/admin`-only mount left
+# the page reachable but completely unstyled and non-functional. Mounting at
+# `/` and doing the path restriction here instead (rather than in the
+# tailscale serve config) covers both `/admin` itself and the static assets
+# it depends on, while still keeping the actual vault (`/`, `/api`,
+# `/identity`, ...) unreachable from this listener.
 #
 # The `http://` scheme is explicit (rather than relying on Caddy inferring
 # plain HTTP from the bare port) to make it unambiguous that this listener
@@ -34,6 +45,13 @@
 # not Caddy's.
 http://:8080 {
 	handle /admin* {
+		reverse_proxy vaultwarden:80
+	}
+
+	# Vaultwarden's admin panel HTML references these by absolute path, so
+	# they must be reachable from here too, even though they live outside
+	# /admin - they're static assets (CSS/JS/images), not vault data.
+	handle /vw_static/* {
 		reverse_proxy vaultwarden:80
 	}
 
