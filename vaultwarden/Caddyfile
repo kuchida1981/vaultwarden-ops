@@ -4,26 +4,40 @@
 	# Vaultwarden's websocket endpoint for live sync notifications.
 	reverse_proxy /notifications/hub vaultwarden:3012
 
-	# Admin panel: only reachable from within the Tailscale tailnet
-	# (Tailscale's CGNAT range). Everyone else gets a 403, regardless of
-	# ADMIN_TOKEN.
-	#
-	# NOTE: {$DOMAIN}'s public DNS A record points at the VM's public IP
-	# (see README setup step 6), so simply visiting https://{$DOMAIN}/admin
-	# arrives over the public internet with a non-Tailscale source IP even
-	# if your device is also connected to Tailscale - it still gets 403.
-	# To actually reach this from the tailnet, override DNS resolution for
-	# this hostname on your admin device(s) to the VM's Tailscale IP (see
-	# README setup step 7 for how). This block's IP check is still what
-	# enforces the restriction; it's the DNS path to it that needs care.
+	# Admin panel: never reachable from the public domain, unconditionally.
+	# {$DOMAIN}'s public DNS A record always resolves to the VM's public IP,
+	# so there is no source IP a request through this domain could arrive
+	# with that would actually indicate tailnet membership - checking
+	# remote_ip here used to just mean "did you edit your hosts file",
+	# which doesn't happen automatically for tailnet-joined devices. The
+	# real entry point is the tailnet-only listener below, published via
+	# `tailscale serve` (see README).
 	handle /admin* {
-		@not_tailnet not remote_ip 100.64.0.0/10
-		respond @not_tailnet 403
-
-		reverse_proxy vaultwarden:80
+		respond 403
 	}
 
 	handle {
 		reverse_proxy vaultwarden:80
+	}
+}
+
+# Tailnet-only admin panel entry point. Bound to 127.0.0.1 by the
+# docker-compose port mapping, so nothing outside the VM can reach it
+# directly - the only way in is via `tailscale serve`, which terminates TLS
+# for https://{$DOMAIN's tailnet MagicDNS name}/admin using a
+# Tailscale-issued cert and forwards here. No source-IP check needed: the
+# tailnet boundary is enforced by `tailscale serve` itself, not by Caddy.
+#
+# The `http://` scheme is explicit (rather than relying on Caddy inferring
+# plain HTTP from the bare port) to make it unambiguous that this listener
+# is deliberately unencrypted - TLS for this path is `tailscale serve`'s job,
+# not Caddy's.
+http://:8080 {
+	handle /admin* {
+		reverse_proxy vaultwarden:80
+	}
+
+	handle {
+		respond 404
 	}
 }

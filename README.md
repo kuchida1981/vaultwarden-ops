@@ -83,6 +83,7 @@ For `terraform/main`'s `tailscale` provider to manage the ACL and auth keys as c
 3. Run "Generate OAuth client"
 4. Grant the **Policy File** (write) and **Auth Keys** (write) scopes (the API scope names are `policy_file` and `auth_keys`; the `tailscale_acl` resource uses Policy File, and the `tailscale_tailnet_key` resource uses Auth Keys). For the Auth Keys tag, select the `tag:vaultwarden-server` tag defined in step 1
 5. Note down the issued **Client ID** and **Client Secret** (the secret is shown only once)
+6. Enable **HTTPS Certificates** at https://login.tailscale.com/admin/dns (tailnet-wide setting, not something the Terraform provider can manage). This lets the VM's `tailscale serve` (used to publish the `/admin` panel to the tailnet only - see step 9) obtain and renew a TLS certificate automatically
 
 ### 3. Configure the Brevo SMTP relay (manual)
 
@@ -146,26 +147,20 @@ In `u-rei.com`'s DNS management screen, create an A record for the `vaultwarden`
 
 ### 9. Access path to the admin panel (your device only)
 
-Since `vaultwarden.u-rei.com`'s public DNS points to the VM's public IP, simply opening `https://vaultwarden.u-rei.com/admin` in a browser routes traffic over the public internet even while connected to Tailscale, so the source IP Caddy sees won't be in Tailscale's CGNAT range (100.64.0.0/10), resulting in a 403. To reach `/admin` via the tailnet, **only on your own admin device**, you need to resolve this hostname to the VM's Tailscale IP.
+`/admin` is never reachable through the public domain (`https://vaultwarden.u-rei.com/admin` always returns 403, regardless of source IP). Instead, the VM publishes it directly to the tailnet via `tailscale serve`, at a MagicDNS hostname that any device already joined to the tailnet can resolve automatically - no `hosts` file editing or DNS configuration needed:
 
-The simplest approach is to add one line to your device's `hosts` file:
-
-```bash
-# Check the VM's Tailscale IP
-tailscale ping vaultwarden   # or check the IP with `tailscale status`
-
-# Append to /etc/hosts (on Windows: C:\Windows\System32\drivers\etc\hosts)
-100.x.y.z  vaultwarden.u-rei.com
+```
+https://vaultwarden.<your-tailnet-name>.ts.net/admin
 ```
 
-Don't apply this setting on family members' other devices (keep them unable to reach `/admin`, using the public domain as-is).
+(`<your-tailnet-name>` is the same value as the `TAILSCALE_TAILNET` secret, e.g. the `example` part of `example.ts.net`.) This only works from devices actually joined to the tailnet; step 6 above must be completed first for the certificate to be issued.
 
 ### 10. Verify operation and invite family members
 
 - Access `https://vaultwarden.u-rei.com` and confirm the Let's Encrypt certificate is valid
 - Confirm you can connect to the VM with `tailscale ssh <vm-hostname>`
-- Confirm that accessing `/admin` from outside the tailnet returns 403 (verify from a device without the step 9 `hosts` setting)
-- Confirm you can access `/admin` from your own device with the step 9 setting applied
+- Confirm that accessing `https://vaultwarden.u-rei.com/admin` returns 403, from both inside and outside the tailnet
+- Confirm you can access `https://vaultwarden.<your-tailnet-name>.ts.net/admin` from your own tailnet-joined device, and that it's unreachable from a device not joined to the tailnet
 - Invite family members by entering their email addresses from `/admin`. Since SMTP is configured, invitation emails are sent automatically (also check the spam folder)
 - On the VM, run `systemctl start backup.service` and confirm the backup is transferred to the shared folder on the NAS
 

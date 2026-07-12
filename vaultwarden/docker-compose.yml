@@ -28,6 +28,10 @@ services:
     ports:
       - "80:80"
       - "443:443"
+      # Tailnet-only admin entry point: bound to loopback only, so it's
+      # unreachable except via `tailscale serve` on the host forwarding
+      # tailnet traffic here (see Caddyfile and startup-script).
+      - "127.0.0.1:8080:8080"
     environment:
       DOMAIN: ${DOMAIN}
     volumes:
