@@ -108,7 +108,12 @@ fi
 # preset" default so this hash is no weaker than `vaultwarden hash` output.
 ADMIN_TOKEN_PLAIN=$(fetch_secret "$ADMIN_SECRET_ID")
 ADMIN_TOKEN_SALT=$(openssl rand -hex 16)
-ADMIN_TOKEN=$(printf '%s' "$ADMIN_TOKEN_PLAIN" | argon2 "$ADMIN_TOKEN_SALT" -id -e -m 16 -t 3 -p 4)
+ADMIN_TOKEN_HASH=$(printf '%s' "$ADMIN_TOKEN_PLAIN" | argon2 "$ADMIN_TOKEN_SALT" -id -e -m 16 -t 3 -p 4)
+# docker compose applies its own $ interpolation when reading --env-file,
+# including to values (not just the compose YAML text), so the literal $
+# characters in the PHC hash must be doubled or compose silently mangles
+# them into blank-substituted garbage before the container ever sees it.
+ADMIN_TOKEN=$(printf '%s' "$ADMIN_TOKEN_HASH" | sed 's/\$/\$\$/g')
 SMTP_USERNAME=$(fetch_secret "$SMTP_USERNAME_SECRET_ID")
 SMTP_PASSWORD=$(fetch_secret "$SMTP_PASSWORD_SECRET_ID")
 cat >/opt/vaultwarden/.env <<EOF

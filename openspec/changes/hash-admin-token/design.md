@@ -49,7 +49,7 @@
 
 ## Risks / Trade-offs
 
-- [Risk] `docker-compose.yml`の`ADMIN_TOKEN: ${ADMIN_TOKEN}`という変数参照とdocker composeの`$`展開処理の組み合わせで、PHC文字列内の複数の`$`(`$argon2id$v=19$m=...$salt$hash`)が壊れる可能性がある → Mitigation: 実装後、実機で`/admin`に実際にログインできることを確認するまでは完了としない(tasks.mdに検証ステップとして明記)。壊れていた場合は`.env`内の値ではなく、`docker-compose.yml`側で`$$`エスケープが必要かどうかを再検証する。
+- [Risk] `docker-compose.yml`の`ADMIN_TOKEN: ${ADMIN_TOKEN}`という変数参照とdocker composeの`$`展開処理の組み合わせで、PHC文字列内の複数の`$`(`$argon2id$v=19$m=...$salt$hash`)が壊れる可能性がある → **実機(ローカルdocker compose)で再現・確認済み**: `--env-file`読み込み時にcomposeが値側の`$`も展開してしまい、無エスケープだと`ADMIN_TOKEN`が`=19=65536,t=3,p=4`のように破壊される。Mitigation: `.env`に書き込む直前に`sed 's/\$/\$\$/g'`で`$`を`$$`に二重化する(startup-script.sh.tftplに実装済み、`docker compose run`でコンテナ内の値が元のPHC文字列と一致することを確認済み)。`${VAR//pattern/repl}`形式のbash brace展開は`.tftpl`がTerraformの`${...}`補間構文と衝突するため使えない。
 - [Risk] saltを毎回使い捨てにする設計のため、`.env`の差分だけを見て「意図しない変更が起きていないか」を監視する運用がしづらくなる(ハッシュ値は毎回変わるのが正常) → Mitigation: 特に対策は不要(元々`.env`はgit管理外でチェックしていない)だが、tasks.mdの動作確認手順にその旨を記録しておく。
 - [Risk] `argon2`パッケージのインストールが何らかの理由で失敗すると、`.env`生成そのものが止まり得る(`set -euxo pipefail`のため) → Mitigation: 他の`apt-get install`と同じ扱いとし、特別なフォールバックは設けない(他の依存パッケージ取得失敗時と同様、起動失敗として検知・対応する)。
 
