@@ -5,7 +5,7 @@
 
 ## 2. Terraform plan確認とapply
 
-- [ ] 2.1 PRを作成し`terraform plan`を実行、`compute.tf`のmetadata(startup-script)のみが差分として出ることを確認する(Secret Manager等の既存リソースに破壊的変更がないこと)
+- [x] 2.1 PRを作成し`terraform plan`を実行、`compute.tf`のmetadata(startup-script)のみが差分として出ることを確認する(Secret Manager等の既存リソースに破壊的変更がないこと)(PR #35のCIコメントで確認: `Plan: 0 to add, 1 to change, 0 to destroy`、差分は`google_compute_instance.vaultwarden`のmetadataのみ)
 - [ ] 2.2 マージ後、`terraform apply`を実行する
 
 ## 3. 稼働中VMへの反映
