@@ -120,6 +120,22 @@ chmod 600 /opt/vaultwarden/.env
 cd "$APP_DIR/vaultwarden"
 docker compose --env-file /opt/vaultwarden/.env up -d
 
+# --- tailscale serve: publish /admin to the tailnet only (idempotent) ---
+# WARNING: this must stay `tailscale serve`, never `tailscale funnel`.
+# `serve` only accepts connections that arrive over the tailnet; `funnel`
+# republishes the same target to the public internet, which would undo the
+# entire point of keeping /admin off the public domain.
+#
+# `--bg` makes tailscaled keep serving this across reboots and `tailscale
+# down`/`up` cycles on its own, but a from-scratch VM (re-created, e.g. for
+# a machine-type change - see tailscale.tf) starts tailscaled with no serve
+# state at all, so this is still reapplied on every boot. Checking for the
+# `/admin` mount point first avoids redundantly resetting an already-correct
+# config on every reboot of an existing VM.
+if ! tailscale serve status --json 2>/dev/null | grep -q '"/admin"'; then
+  tailscale serve --bg --https=443 --set-path=/admin localhost:8080
+fi
+
 # --- NAS backup: daily systemd timer pushing to a Synology rsync daemon ---
 # Auth is a plain rsyncd password rather than an SSH key: the transfer never
 # leaves the Tailscale WireGuard tunnel, so rsync's lack of its own

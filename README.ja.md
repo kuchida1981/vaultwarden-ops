@@ -82,6 +82,7 @@ terraform output
 3. "Generate OAuth client" を実行
 4. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)。Auth Keysのタグには手順1で定義した `tag:vaultwarden-server` を選択する
 5. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
+6. https://login.tailscale.com/admin/dns で **HTTPS Certificates** を有効化する(tailnet単位の設定で、Terraformプロバイダでは管理できない)。これによりVM上の`tailscale serve`(手順9で`/admin`パネルをtailnet限定公開するのに使う)がTLS証明書を自動取得・更新できるようになる
 
 ### 3. BrevoでSMTPリレーを設定(手動)
 
@@ -145,26 +146,20 @@ terraform output vm_external_ip
 
 ### 9. adminパネルへのアクセス経路(自分の端末のみ)
 
-`vaultwarden.u-rei.com`の公開DNSはVMの公開IPを指しているため、単にブラウザで`https://vaultwarden.u-rei.com/admin`を開くと、Tailscaleに接続していても通信は公開インターネット経由になり、Caddyから見た送信元IPはTailscaleのCGNAT範囲(100.64.0.0/10)にならず403になる。tailnet経由で`/admin`に到達するには、**自分のadmin用端末でだけ**このホスト名をVMのTailscale IPに解決させる必要がある。
+`/admin`は公開ドメイン経由では到達できない(`https://vaultwarden.u-rei.com/admin`は送信元IPによらず常に403を返す)。代わりにVMが`tailscale serve`で`/admin`をtailnetへ直接公開しており、tailnetに参加済みの端末であれば`hosts`ファイル編集などの追加設定なしに、以下のMagicDNSホスト名で自動的に到達できる:
 
-もっとも簡単な方法は、自分の端末の`hosts`ファイルに1行追記すること:
-
-```bash
-# VMのTailscale IPを確認
-tailscale ping vaultwarden   # または `tailscale status` でIPを確認
-
-# /etc/hosts (Windowsは C:\Windows\System32\drivers\etc\hosts) に追記
-100.x.y.z  vaultwarden.u-rei.com
+```
+https://vaultwarden.<自分のtailnet名>.ts.net/admin
 ```
 
-家族の他の端末はこの設定をしない(公開ドメインのままで`/admin`には到達できない状態を維持する)。
+(`<自分のtailnet名>`は`TAILSCALE_TAILNET` Secretと同じ値。例: `example.ts.net`のexample部分)。これはtailnetに実際に参加している端末からのみ機能する。証明書が発行されるには、前述の手順6を先に完了させておく必要がある。
 
 ### 10. 動作確認と家族の招待
 
 - `https://vaultwarden.u-rei.com` にアクセスし、Let's Encrypt証明書が有効になっていることを確認
 - `tailscale ssh <vm-hostname>` でVMに接続できることを確認
-- tailnet外から`/admin`にアクセスすると403になることを確認(手順9の`hosts`設定をしていない端末で確認)
-- 手順9の設定をした自分の端末から`/admin`にアクセスできることを確認
+- `https://vaultwarden.u-rei.com/admin`がtailnetの内外どちらからアクセスしても403になることを確認
+- 自分のtailnet参加端末から`https://vaultwarden.<自分のtailnet名>.ts.net/admin`にアクセスできること、tailnet未参加の端末からは到達できないことを確認
 - `/admin`から家族分のメールアドレスを入力して招待する。SMTP設定済みのため招待メールが自動送信される(迷惑フォルダも確認する)
 - VM上で`systemctl start backup.service`を実行し、NAS側の共有フォルダにバックアップが転送されることを確認する
 

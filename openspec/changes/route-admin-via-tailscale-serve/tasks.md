@@ -6,15 +6,15 @@
 
 ## 2. Caddyfileの変更
 
-- [ ] 2.1 **[実装]** `127.0.0.1`限定で待ち受ける内部リスナー(例: `:8080`)を追加し、`/admin*`のみを`vaultwarden:80`へ中継する設定を書く
-- [ ] 2.2 **[実装]** 公開ドメイン(`{$DOMAIN}`)側の`/admin`ハンドラから送信元IP判定(`@not_tailnet`)を撤去し、無条件403を返すよう変更する
-- [ ] 2.3 **[実装]** 変更後のCaddyfileをローカルの`docker compose`で起動し、公開側`/admin`が常に403になること、内部リスナー経由では到達できることを確認する
+- [x] 2.1 **[実装]** `127.0.0.1`限定で待ち受ける内部リスナー(例: `:8080`)を追加し、`/admin*`のみを`vaultwarden:80`へ中継する設定を書く
+- [x] 2.2 **[実装]** 公開ドメイン(`{$DOMAIN}`)側の`/admin`ハンドラから送信元IP判定(`@not_tailnet`)を撤去し、無条件403を返すよう変更する
+- [x] 2.3 **[実装]** 変更後のCaddyfileをローカルの`docker compose`で起動し、公開側`/admin`が常に403になること、内部リスナー経由では到達できることを確認する(隔離したDockerネットワークで検証済み: 公開`/admin`は送信元IP偽装でも常に403、公開`/`は200、内部`:8080`の`/admin`は実際のVaultwarden管理画面に到達、それ以外は404)
 
 ## 3. startup-scriptへの`tailscale serve`設定追加
 
-- [ ] 3.1 **[実装]** `terraform/main/templates/startup-script.sh.tftpl`に、`tailscale serve`で`/admin`を内部リスナー(`localhost:8080`等)へフォワードする設定を追加する
-- [ ] 3.2 **[実装]** 既存の`tailscale up`と同様、既に設定済みかどうかを確認してから適用する冪等な形にする(VM再作成時にも安全に再実行できること)
-- [ ] 3.3 **[実装]** `tailscale serve`と`tailscale funnel`の違い、および誤って`funnel`を使うと`/admin`がインターネット全体に公開されてしまう旨を警告するコメントを追加する
+- [x] 3.1 **[実装]** `terraform/main/templates/startup-script.sh.tftpl`に、`tailscale serve`で`/admin`を内部リスナー(`localhost:8080`等)へフォワードする設定を追加する
+- [x] 3.2 **[実装]** 既存の`tailscale up`と同様、既に設定済みかどうかを確認してから適用する冪等な形にする(VM再作成時にも安全に再実行できること)
+- [x] 3.3 **[実装]** `tailscale serve`と`tailscale funnel`の違い、および誤って`funnel`を使うと`/admin`がインターネット全体に公開されてしまう旨を警告するコメントを追加する
 
 ## 4. デプロイと動作確認
 
@@ -26,7 +26,7 @@
 
 ## 5. README更新
 
-- [ ] 5.1 **[実装]** `README.md`/`README.ja.md`のセットアップ手順9(`/etc/hosts`編集手順)を削除する
-- [ ] 5.2 **[実装]** 新しいadmin到達方法(`https://vaultwarden.<tailnet>.ts.net/admin`)の説明に置き換える
-- [ ] 5.3 **[実装]** Tailscale管理コンソールでのHTTPS Certificates有効化手順を、既存のOAuthクライアント発行手順などと同様の形式でREADMEに追加する
-- [ ] 5.4 **[実装]** セットアップ手順10(動作確認)の記述を、新しい到達方法・確認内容に合わせて更新する
+- [x] 5.1 **[実装]** `README.md`/`README.ja.md`のセットアップ手順9(`/etc/hosts`編集手順)を削除する
+- [x] 5.2 **[実装]** 新しいadmin到達方法(`https://vaultwarden.<tailnet>.ts.net/admin`)の説明に置き換える
+- [x] 5.3 **[実装]** Tailscale管理コンソールでのHTTPS Certificates有効化手順を、既存のOAuthクライアント発行手順などと同様の形式でREADMEに追加する
+- [x] 5.4 **[実装]** セットアップ手順10(動作確認)の記述を、新しい到達方法・確認内容に合わせて更新する
