@@ -2,7 +2,7 @@
 
 ## 1. Tailscale管理コンソールの手動設定
 
-- [ ] 1.1 **[あなた]** Tailscale管理コンソールで「HTTPS Certificates」機能を有効化する(tailnet単位、Terraform管理外。ブラウザでの操作が必要)
+- [x] 1.1 **[あなた]** Tailscale管理コンソールで「HTTPS Certificates」機能を有効化する(tailnet単位、Terraform管理外。ブラウザでの操作が必要)
 
 ## 2. Caddyfileの変更
 
@@ -17,6 +17,8 @@
 - [x] 3.3 **[実装]** `tailscale serve`と`tailscale funnel`の違い、および誤って`funnel`を使うと`/admin`がインターネット全体に公開されてしまう旨を警告するコメントを追加する
 
 ## 4. デプロイと動作確認
+
+(このセクションはmainへのマージ・VMへの反映が前提。PRマージ前は実行不可)
 
 - [ ] 4.1 **[あなた]** 変更をmainにマージし、GitHub ActionsのGitHub Environment承認ゲートを承認してVMに反映する(マージ・承認はリポジトリ権限を持つ本人が行う)
 - [ ] 4.2 **[あなた]** 公開ドメイン経由で`/admin`にアクセスし、常に403が返ることを確認する(tailnet内外どちらの送信元でも。実機のブラウザでの確認)
