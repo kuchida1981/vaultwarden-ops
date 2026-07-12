@@ -19,7 +19,7 @@ NAS_BACKUP_USERNAME="${nas_backup_username}"
 NAS_BACKUP_PASSWORD_SECRET_ID="${nas_backup_password_secret_id}"
 
 apt-get update
-apt-get install -y --no-install-recommends ca-certificates curl gnupg jq git unattended-upgrades rsync sqlite3
+apt-get install -y --no-install-recommends ca-certificates curl gnupg jq git unattended-upgrades rsync sqlite3 argon2 openssl
 
 # --- automatic security updates ---
 cat >/etc/apt/apt.conf.d/20auto-upgrades <<'EOF'
@@ -100,7 +100,15 @@ else
   git clone --depth 1 "https://github.com/$GITHUB_REPO.git" "$APP_DIR"
 fi
 
-ADMIN_TOKEN=$(fetch_secret "$ADMIN_SECRET_ID")
+# The plaintext stays only in Secret Manager (for operator login); the
+# container only ever sees an Argon2id hash, generated fresh on every boot
+# with a new random salt. Vaultwarden verifies the login-supplied plaintext
+# against this hash, so the hash text changing across reboots is harmless.
+# Parameters (m=2^16 KiB, t=3, p=4) match vaultwarden's own "bitwarden
+# preset" default so this hash is no weaker than `vaultwarden hash` output.
+ADMIN_TOKEN_PLAIN=$(fetch_secret "$ADMIN_SECRET_ID")
+ADMIN_TOKEN_SALT=$(openssl rand -hex 16)
+ADMIN_TOKEN=$(printf '%s' "$ADMIN_TOKEN_PLAIN" | argon2 "$ADMIN_TOKEN_SALT" -id -e -m 16 -t 3 -p 4)
 SMTP_USERNAME=$(fetch_secret "$SMTP_USERNAME_SECRET_ID")
 SMTP_PASSWORD=$(fetch_secret "$SMTP_PASSWORD_SECRET_ID")
 cat >/opt/vaultwarden/.env <<EOF

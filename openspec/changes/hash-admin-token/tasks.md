@@ -1,7 +1,7 @@
 ## 1. startup-script: ハッシュ化ロジックの追加
 
-- [ ] 1.1 `terraform/main/templates/startup-script.sh.tftpl`の`apt-get install`リストに`argon2`パッケージを追加する
-- [ ] 1.2 `.env`生成部分で、`fetch_secret`で取得した平文`ADMIN_TOKEN`をそのまま書き込む代わりに、`openssl rand -hex 16`等でランダムsaltを生成し、`argon2`コマンド(`-e -id -m 16 -t 3 -p 4`、Vaultwarden公式の"bitwardenプリセット"に相当するパラメータ)でArgon2id PHC文字列に変換してから`ADMIN_TOKEN=`として書き込むよう変更する
+- [x] 1.1 `terraform/main/templates/startup-script.sh.tftpl`の`apt-get install`リストに`argon2`パッケージを追加する
+- [x] 1.2 `.env`生成部分で、`fetch_secret`で取得した平文`ADMIN_TOKEN`をそのまま書き込む代わりに、`openssl rand -hex 16`等でランダムsaltを生成し、`argon2`コマンド(`-e -id -m 16 -t 3 -p 4`、Vaultwarden公式の"bitwardenプリセット"に相当するパラメータ)でArgon2id PHC文字列に変換してから`ADMIN_TOKEN=`として書き込むよう変更する
 
 ## 2. Terraform plan確認とapply
 
