@@ -20,10 +20,10 @@
 
 (このセクションはmainへのマージ・VMへの反映が前提。PRマージ前は実行不可)
 
-- [ ] 4.1 **[あなた]** 変更をmainにマージし、GitHub ActionsのGitHub Environment承認ゲートを承認してVMに反映する(マージ・承認はリポジトリ権限を持つ本人が行う)
+- [x] 4.1 **[あなた]** 変更をmainにマージし、GitHub ActionsのGitHub Environment承認ゲートを承認してVMに反映する(マージ・承認はリポジトリ権限を持つ本人が行う)(#30, #31 いずれもマージ・apply済み)
 - [ ] 4.2 **[あなた]** 公開ドメイン経由で`/admin`にアクセスし、常に403が返ることを確認する(tailnet内外どちらの送信元でも。実機のブラウザでの確認)
-- [ ] 4.3 **[あなた]** tailnetに参加した自分の端末から`https://vaultwarden.<tailnet>.ts.net/admin`にアクセスし、追加設定なしに管理パネルへ到達できることを確認する
-- [ ] 4.4 **[あなた]** tailnetに参加していない端末(例: モバイル回線のスマートフォン)から`vaultwarden.<tailnet>.ts.net`への到達を試み、失敗することを確認する
+- [x] 4.3 **[あなた]** tailnetに参加した自分の端末から`https://vaultwarden.<tailnet>.ts.net/admin`にアクセスし、追加設定なしに管理パネルへ到達できることを確認する(tailscale有効時に開けることを確認済み)
+- [x] 4.4 **[あなた]** tailnetに参加していない端末(例: モバイル回線のスマートフォン)から`vaultwarden.<tailnet>.ts.net`への到達を試み、失敗することを確認する(`tailscale logout`後に開けなくなることを確認済み。別端末での確認ではないが同等の証跡として採用)
 - [ ] 4.5 **[あなた]** VM再作成(または`startup-script`の再実行)後も、`tailscale serve`経由での`/admin`アクセスが自動的に復元されることを確認する
 
 ## 5. README更新
