@@ -12,26 +12,17 @@ A complete infrastructure setup for self-hosting Vaultwarden (a password manager
 
 ## Architecture
 
-```
-                         Internet (anyone)
-                                │ 443 only
-                                ▼
-                    ┌───────────────────────────┐
-                    │  GCE VM (e2-micro)          │
-                    │  asia-northeast1, Debian13  │
-                    │  ┌───────────────────────┐  │
-                    │  │ Caddy (TLS termination) │  │
-                    │  │  / → Vaultwarden        │  │
-                    │  │  /admin → tailnet only  │  │
-                    │  └───────────────────────┘  │
-                    │  data disk: dedicated        │
-                    │  Persistent Disk (lifecycle  │
-                    │  independent of the VM)      │
-                    └───────────────┬───────────────┘
-                                    │ Tailscale (WireGuard)
-                                    ▼
-                        SSH only via tailscale ssh
-                    (port 22 is not exposed publicly)
+```mermaid
+flowchart TB
+    internet["Internet (anyone)"]
+    subgraph vm["GCE VM (e2-micro)<br/>asia-northeast1, Debian13"]
+        caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
+        disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
+    end
+    admin["SSH only via tailscale ssh<br/>(port 22 is not exposed publicly)"]
+
+    internet -->|"443 only"| vm
+    vm -->|"Tailscale (WireGuard)"| admin
 ```
 
 Terraform is split into two stages: `terraform/bootstrap` (applied manually, once) and `terraform/main` (applied continuously by GitHub Actions).
