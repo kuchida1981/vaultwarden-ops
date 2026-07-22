@@ -12,25 +12,17 @@
 
 ## アーキテクチャ
 
-```
-                         インターネット (誰でも)
-                                │ 443 のみ
-                                ▼
-                    ┌───────────────────────────┐
-                    │  GCE VM (e2-micro)          │
-                    │  asia-northeast1, Debian13  │
-                    │  ┌───────────────────────┐  │
-                    │  │ Caddy (TLS終端)         │  │
-                    │  │  / → Vaultwarden        │  │
-                    │  │  /admin → tailnetのみ    │  │
-                    │  └───────────────────────┘  │
-                    │  data disk: 専用Persistent   │
-                    │  Disk (VMと独立ライフサイクル) │
-                    └───────────────┬───────────────┘
-                                    │ Tailscale (WireGuard)
-                                    ▼
-                         SSHはtailscale sshのみ
-                     (公開ファイアウォールで22番は非公開)
+```mermaid
+flowchart TB
+    internet["インターネット (誰でも)"]
+    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
+        caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
+        disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
+    end
+    admin["SSHはtailscale sshのみ<br/>(公開ファイアウォールで22番は非公開)"]
+
+    internet -->|"443 のみ"| vm
+    vm -->|"Tailscale (WireGuard)"| admin
 ```
 
 Terraformは`terraform/bootstrap`(1回だけ手動apply)と`terraform/main`(GitHub Actionsが継続的にapply)の2段構成。
