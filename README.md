@@ -15,7 +15,7 @@ A complete infrastructure setup for self-hosting Vaultwarden (a password manager
 ```mermaid
 flowchart TB
     internet["Internet (anyone)"]
-    subgraph vm["GCE VM (e2-micro)<br/>asia-northeast1, Debian13"]
+    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
         caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
         disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
     end

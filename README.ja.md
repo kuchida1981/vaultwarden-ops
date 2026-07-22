@@ -15,7 +15,7 @@
 ```mermaid
 flowchart TB
     internet["インターネット (誰でも)"]
-    subgraph vm["GCE VM (e2-micro)<br/>asia-northeast1, Debian13"]
+    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
         caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
         disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
     end
