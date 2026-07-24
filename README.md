@@ -77,6 +77,8 @@ terraform output
 
 **Updating an existing environment**: Since `terraform/bootstrap` is manual-apply-only (not run by GitHub Actions), if the CI service account's IAM permissions ever change, you need to re-run the same `terraform apply` command to pick up the change. Only the diff is applied; existing resources are untouched. Because state now lives in GCS, this can be done from any machine — just run `terraform init -backend-config="bucket=<state_bucket>"` first to reconnect to the shared state; there's no need to be on the machine that last applied it.
 
+**Plan is automated, apply is not**: `.github/workflows/terraform-plan.yml` runs `terraform plan` against `terraform/bootstrap` for every PR (including Dependabot's weekly provider-version PRs) and comments the result, using the same read-only-capable CI service account as `terraform/main`. `terraform-apply.yml` deliberately does **not** cover `terraform/bootstrap`: this directory creates the CI service account itself, its Workload Identity Federation pool, and its own project IAM bindings, so letting CI apply it would let that identity grant itself broader permissions unsupervised. Reviewing the CI-posted plan and then running `terraform apply` by hand (as above) remains the only way changes to `terraform/bootstrap` take effect.
+
 ### 2. Issue a Tailscale OAuth client (manual)
 
 For `terraform/main`'s `tailscale` provider to manage the ACL and auth keys as code, an OAuth client with API access to the tailnet is required.

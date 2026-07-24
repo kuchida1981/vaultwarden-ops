@@ -51,3 +51,22 @@ GitHub ActionsによるTerraform CI/CDパイプラインを管理する。Worklo
 #### Scenario: 既存環境での運用者交代・別マシンからの操作がREADMEの手順のみで完了する
 - **WHEN** 既にリモートバックエンドへ移行済みの環境に対して、別の運用者または別マシンから`terraform/bootstrap`を操作する
 - **THEN** README記載の`-backend-config`を指定した`terraform init`のみで、既存stateを正しく参照できる
+
+### Requirement: bootstrapのdependabot PRに対するCI plan(applyは対象外)
+システムは、`terraform/bootstrap`配下のファイルを変更するプルリクエスト(dependabotによるものを含む)に対して、CI上で`terraform plan`を実行し、その結果をPR上にコメントしなければならない(SHALL)。この実行は`terraform/main`用のCIジョブとは独立した、`terraform/bootstrap`専用のジョブ・ステップとして実装しなければならない(SHALL)。`terraform/bootstrap`向けの`terraform apply`をCIから自動実行してはならない(SHALL NOT)。`terraform/bootstrap`の変更の反映は、引き続きREADMEに記載された手動apply手順によってのみ行われなければならない(SHALL)。
+
+#### Scenario: bootstrap向けdependabot PRでplanがコメントされる
+- **WHEN** dependabotが`terraform/bootstrap`配下のprovider定義を更新するプルリクエストを作成する
+- **THEN** CI上で`terraform/bootstrap`ディレクトリに対する`terraform plan`が実行され、その結果がPRにコメントされる
+
+#### Scenario: bootstrap向けPRがmainにマージされてもapplyは実行されない
+- **WHEN** `terraform/bootstrap`配下の変更を含むプルリクエストが`main`にマージされる
+- **THEN** `terraform-apply.yml`は起動せず、`terraform/bootstrap`への変更はCIによって自動適用されない
+
+#### Scenario: terraform/main向けのCIジョブに影響しない
+- **WHEN** `terraform/bootstrap`専用のjobを追加した後、`terraform/main`配下のみを変更するプルリクエストを作成する
+- **THEN** 既存の`terraform/main`用plan結果・挙動に変化はない
+
+#### Scenario: terraform自体の失敗がCI上で正しく検知される
+- **WHEN** `terraform/bootstrap`または`terraform/main`向けの`terraform plan`ステップでterraform自体がエラー終了する
+- **THEN** `tee`によってexit codeが握りつぶされず、当該CIステップおよびrequired checkが失敗として扱われる
