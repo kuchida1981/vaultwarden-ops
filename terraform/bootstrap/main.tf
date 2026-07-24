@@ -85,8 +85,24 @@ resource "google_project_iam_member" "terraform_ci_roles" {
     "roles/secretmanager.admin",
     "roles/iam.serviceAccountAdmin",
     "roles/iam.serviceAccountUser",
+    # Read-only roles below let CI `terraform plan` refresh terraform/bootstrap's
+    # own resources (project services, WIF pool/provider, project IAM
+    # bindings) without granting any ability to change them. terraform/bootstrap
+    # is never applied by CI - see terraform-plan.yml's plan-bootstrap job.
+    "roles/serviceusage.serviceUsageViewer",
+    "roles/iam.workloadIdentityPoolViewer",
+    "roles/iam.securityReviewer",
   ])
   project = var.project_id
   role    = each.value
   member  = "serviceAccount:${google_service_account.terraform_ci.email}"
+}
+
+# roles/storage.objectAdmin above (terraform_ci_state_access) only grants
+# object-level access, not storage.buckets.get - needed to refresh the
+# google_storage_bucket.tfstate resource itself during `terraform plan`.
+resource "google_storage_bucket_iam_member" "terraform_ci_state_bucket_reader" {
+  bucket = google_storage_bucket.tfstate.name
+  role   = "roles/storage.legacyBucketReader"
+  member = "serviceAccount:${google_service_account.terraform_ci.email}"
 }

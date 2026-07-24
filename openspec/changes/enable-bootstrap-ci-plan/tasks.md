@@ -1,12 +1,12 @@
 ## 1. コード変更(実装者が行う)
 
-- [ ] 1.1 `terraform/bootstrap/main.tf`の`terraform_ci_roles`(または専用リソース)に、`google_project_service.required`・WIF Pool/Provider・project IAMポリシーを読み取るための最小限のViewer系ロール(`roles/serviceusage.serviceUsageViewer`・`roles/iam.workloadIdentityPoolViewer`・`roles/iam.securityReviewer`)を追加する
-- [ ] 1.2 `terraform/bootstrap/main.tf`に、stateバケット(`google_storage_bucket.tfstate`)自体のメタデータ読み取り用の`roles/storage.legacyBucketReader`をバケットスコープ(`google_storage_bucket_iam_member`)で追加する
-- [ ] 1.3 `.github/workflows/terraform-plan.yml`に、`terraform/bootstrap`専用のjob(`plan-bootstrap`)を追加する。既存の`terraform/main`用`plan`ジョブの構造(actor判定・relevance-check・auth・init・plan・PRコメント)をテンプレートとして踏襲し、working-directoryと環境変数(`project_id`・`github_repo`のみ、tailscale/smtp/nas_backup系は不要)のみ差し替える
-- [ ] 1.4 追加した`plan-bootstrap`のrelevance-checkが`terraform/bootstrap`と自身のワークフローファイルのみを見ており、`terraform/main`用jobのrelevance-checkと独立していることを確認する
-- [ ] 1.5 既存の`terraform/main`用`plan`ジョブと新設`plan-bootstrap`ジョブの両方の`Terraform Plan`ステップに`set -o pipefail`を追加し、`terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt`の形に修正する(terraform失敗時にteeがexit codeを握りつぶすバグの修正)
-- [ ] 1.6 README.md/README.ja.mdに、`terraform/bootstrap`はplanのみCI化されapplyは引き続き手動である旨を追記する
-- [ ] 1.7 `terraform fmt -check`(bootstrap)でコードの構文を確認する
+- [x] 1.1 `terraform/bootstrap/main.tf`の`terraform_ci_roles`(または専用リソース)に、`google_project_service.required`・WIF Pool/Provider・project IAMポリシーを読み取るための最小限のViewer系ロール(`roles/serviceusage.serviceUsageViewer`・`roles/iam.workloadIdentityPoolViewer`・`roles/iam.securityReviewer`)を追加する
+- [x] 1.2 `terraform/bootstrap/main.tf`に、stateバケット(`google_storage_bucket.tfstate`)自体のメタデータ読み取り用の`roles/storage.legacyBucketReader`をバケットスコープ(`google_storage_bucket_iam_member`)で追加する
+- [x] 1.3 `.github/workflows/terraform-plan.yml`に、`terraform/bootstrap`専用のjob(`plan-bootstrap`)を追加する。既存の`terraform/main`用`plan`ジョブの構造(actor判定・relevance-check・auth・init・plan・PRコメント)をテンプレートとして踏襲し、working-directoryと環境変数(`project_id`・`github_repo`のみ、tailscale/smtp/nas_backup系は不要)のみ差し替える
+- [x] 1.4 追加した`plan-bootstrap`のrelevance-checkが`terraform/bootstrap`と自身のワークフローファイルのみを見ており、`terraform/main`用jobのrelevance-checkと独立していることを確認する
+- [x] 1.5 既存の`terraform/main`用`plan`ジョブと新設`plan-bootstrap`ジョブの両方の`Terraform Plan`ステップに`set -o pipefail`を追加し、`terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt`の形に修正する(terraform失敗時にteeがexit codeを握りつぶすバグの修正)
+- [x] 1.6 README.md/README.ja.mdに、`terraform/bootstrap`はplanのみCI化されapplyは引き続き手動である旨を追記する
+- [x] 1.7 `terraform fmt -check`(bootstrap)でコードの構文を確認する(YAML構文も`ruby -ryaml`で確認)
 
 ## 2. 権限反映 — [ユーザーが手動で実行する作業]
 
