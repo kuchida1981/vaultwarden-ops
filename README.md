@@ -35,19 +35,38 @@ Terraform is split into two stages: `terraform/bootstrap` (applied manually, onc
 - `gcloud` CLI and `terraform` (>=1.6) installed locally, and `gcloud auth application-default login` already done
 - Already joined a Tailscale tailnet (this repository does not create the tailnet itself)
 
-### 1. Bootstrap (manual, once only)
+### 1. Bootstrap (manual, once)
 
-`terraform/main` assumes a GCS remote backend and GitHub Actions authentication via Workload Identity Federation, but since the bucket and WIF Pool themselves are "what's about to be created," they must be created manually from your local machine, just once.
+`terraform/main` assumes a GCS remote backend and GitHub Actions authentication via Workload Identity Federation, but the bucket and WIF Pool themselves are what's "about to be created," so they're set up manually from your local machine, once. `terraform/bootstrap` itself also keeps its own state in that same bucket (under a separate `bootstrap` prefix, configured in `terraform/bootstrap/versions.tf`), rather than a local file, so its state isn't tied to whichever machine last ran `apply` and isn't at risk of being lost when you switch machines.
+
+**If the state bucket already exists in this project** (the common case — re-running bootstrap on an already-bootstrapped environment, e.g. to pick up an IAM change):
 
 ```bash
 cd terraform/bootstrap
-terraform init
+terraform init -backend-config="bucket=<existing-state-bucket-name>"
 terraform apply \
   -var="project_id=<your-gcp-project-id>" \
   -var="github_repo=<your-github-username>/<your-repo-name>"  # must exactly match the GitHub repo, e.g. kuchida1981/vaultwarden-ops
 ```
 
-After the apply completes, note down the following outputs (needed for the GitHub Secrets setup below):
+**If this is the very first bootstrap run in a brand new GCP project** (the bucket doesn't exist yet, so `terraform init` has nothing to point the backend at), do a one-time local-then-migrate dance instead:
+
+```bash
+cd terraform/bootstrap
+
+# 1. Temporarily comment out the `backend "gcs" { ... }` block in versions.tf
+#    so this first-ever run can use local state to create the bucket itself.
+terraform init
+terraform apply \
+  -var="project_id=<your-gcp-project-id>" \
+  -var="github_repo=<your-github-username>/<your-repo-name>"
+
+# 2. Restore the `backend "gcs" { ... }` block, then migrate the state you
+#    just created into the bucket that same apply just created.
+terraform init -backend-config="bucket=$(terraform output -raw state_bucket)" -migrate-state
+```
+
+After either path, note the following outputs (you'll need them when registering GitHub Secrets):
 
 ```bash
 terraform output
@@ -55,6 +74,8 @@ terraform output
 # workload_identity_provider
 # terraform_ci_service_account_email
 ```
+
+**Updating an existing environment**: Since `terraform/bootstrap` is manual-apply-only (not run by GitHub Actions), if the CI service account's IAM permissions ever change, you need to re-run the same `terraform apply` command to pick up the change. Only the diff is applied; existing resources are untouched. Because state now lives in GCS, this can be done from any machine — just run `terraform init -backend-config="bucket=<state_bucket>"` first to reconnect to the shared state; there's no need to be on the machine that last applied it.
 
 ### 2. Issue a Tailscale OAuth client (manual)
 
