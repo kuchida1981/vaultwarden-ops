@@ -17,6 +17,6 @@
 
 ## 3. 動作確認 — [ユーザーが手動で実行する作業]
 
-- [ ] 3.1 [ユーザー作業] 本changeのPRで`plan-bootstrap` jobを実行し、CI上で`terraform plan`が正常終了(`No changes`または想定通りの差分)し、PRにplan結果がコメントされることを確認する。チェックが"pass"でも実際は`Planning failed`が握りつぶされている可能性があるため、PRコメントの中身まで確認する
-- [ ] 3.2 [ユーザー作業] タスク3.1でrefreshエラー(権限不足)が出た場合、エラーメッセージから不足しているロールを特定し、タスク1.1/1.2に追加してタスク2を再実施する(設計のOpen Questions参照)
-- [ ] 3.3 [ユーザー作業] 同じPR上で、`terraform-apply.yml`が起動していない(=applyが自動実行されていない)ことを確認する
+- [x] 3.1 [ユーザー作業] 本changeのPR(#45)で`plan-bootstrap` jobを実行し、CI上で`terraform plan`が正常終了(`No changes`または想定通りの差分)し、PRにplan結果がコメントされることを確認する。チェックが"pass"でも実際は`Planning failed`が握りつぶされている可能性があるため、PRコメントの中身まで確認する(実際に`plan-bootstrap`・`plan`両ジョブとも全ステップ成功、PRコメントの中身も`No changes. Your infrastructure matches the configuration.`であることを確認)
+- [x] 3.2 タスク3.1でrefreshエラー(権限不足)は発生しなかったため、追加ロールなしで完了(設計のOpen Questions解消)
+- [x] 3.3 [ユーザー作業] 同じPR上で、`terraform-apply.yml`が起動していない(=applyが自動実行されていない)ことを確認する(`gh run list --branch enable-bootstrap-ci-plan --workflow terraform-apply.yml`で実行履歴0件を確認)
