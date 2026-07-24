@@ -9,13 +9,13 @@
 
 **注意**: この節の作業は認証情報を伴う破壊的になりうる操作のため、実装者(Claude)は実行せず、ユーザー自身が手元のマシンで実行する。
 
-- [ ] 2.1 [ユーザー作業] `terraform/bootstrap`ディレクトリの現在のローカルstate(`terraform.tfstate`・`terraform.tfstate.backup`)を、リポジトリ外の安全な場所にバックアップする
-- [ ] 2.2 [ユーザー作業] 移行先バケット名(`kuchida-devel-vaultwarden-tfstate`)を確認する(backend未初期化のためローカルstateファイルから`jq`で直接確認してもよい)
-- [ ] 2.3 [ユーザー作業] タスク1.1のコード変更を取り込んだ上で、`terraform init -backend-config="bucket=kuchida-devel-vaultwarden-tfstate" -migrate-state`を実行し、ローカルstateをGCS(`bootstrap`prefix)へ移行する
-- [ ] 2.4 [ユーザー作業] 移行直後に同一マシンで`terraform plan`を実行し、差分が0件(No changes)であることを確認する
-- [ ] 2.5 [ユーザー作業] 別マシン(または別の作業ディレクトリにクローンした同一リポジトリ)から、タスク2.3と同じ`-backend-config`で`terraform init`→`terraform plan`を実行し、ローカルstate不在に起因する誤差分が出ないことを確認する
-- [ ] 2.6 [ユーザー作業] 移行完了後、バックアップ済みのローカルstateファイルは誤って再利用されないよう、作業ディレクトリから削除するか隔離する(gitignore対象のため誤コミットのリスクはないが、混乱防止のため)
+- [x] 2.1 [ユーザー作業] `terraform/bootstrap`ディレクトリの現在のローカルstate(`terraform.tfstate`・`terraform.tfstate.backup`)を、リポジトリ外の安全な場所にバックアップする
+- [x] 2.2 [ユーザー作業] 移行先バケット名(`kuchida-devel-vaultwarden-tfstate`)を確認する(backend未初期化のためローカルstateファイルから`jq`で直接確認してもよい)
+- [x] 2.3 [ユーザー作業] タスク1.1のコード変更を取り込んだ上で、`terraform init -backend-config="bucket=kuchida-devel-vaultwarden-tfstate" -migrate-state`を実行し、ローカルstateをGCS(`bootstrap`prefix)へ移行する
+- [x] 2.4 [ユーザー作業] 移行直後に同一マシンで`terraform plan`を実行し、差分が0件(No changes)であることを確認する
+- [x] 2.5 [ユーザー作業] 別マシン(または別の作業ディレクトリにクローンした同一リポジトリ)から、タスク2.3と同じ`-backend-config`で`terraform init`→`terraform plan`を実行し、ローカルstate不在に起因する誤差分が出ないことを確認する
+- [x] 2.6 [ユーザー作業] 移行完了後、バックアップ済みのローカルstateファイルは誤って再利用されないよう、作業ディレクトリから削除するか隔離する(gitignore対象のため誤コミットのリスクはないが、混乱防止のため)
 
 ## 3. ドキュメント確認
 
-- [ ] 3.1 README.md/README.ja.mdの新しいセットアップ手順を読み直し、実際にタスク2で行った手順と一言一句ズレがないことを確認する(手順とコードの乖離を防ぐため)
+- [x] 3.1 README.md/README.ja.mdの新しいセットアップ手順を読み直し、実際にタスク2で行った手順と一言一句ズレがないことを確認する(手順とコードの乖離を防ぐため)
