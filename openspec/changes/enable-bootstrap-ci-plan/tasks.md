@@ -12,8 +12,8 @@
 
 **注意**: `terraform/bootstrap`はCIからapplyできない設計を維持しているため、コード変更後の実際の権限付与は、認証情報を持つユーザー自身が手動で実行する。
 
-- [ ] 2.1 [ユーザー作業] タスク1.1〜1.2のコード変更を取り込んだ上で、README記載の既存環境向け手順(`terraform init -backend-config="bucket=kuchida-devel-vaultwarden-tfstate"` → `terraform apply -var="project_id=..." -var="github_repo=..."`)で`terraform/bootstrap`を手動applyし、CI用SA(`terraform_ci`)に新しい読み取り専用ロールを付与する
-- [ ] 2.2 [ユーザー作業] applyの差分が、追加したロールの付与のみであり、他のリソースに意図しない変更が無いことを確認する
+- [x] 2.1 [ユーザー作業] タスク1.1〜1.2のコード変更を取り込んだ上で、README記載の既存環境向け手順(`terraform init -backend-config="bucket=kuchida-devel-vaultwarden-tfstate"` → `terraform apply -var="project_id=..." -var="github_repo=..."`)で`terraform/bootstrap`を手動applyし、CI用SA(`terraform_ci`)に新しい読み取り専用ロールを付与する
+- [x] 2.2 [ユーザー作業] applyの差分が、追加したロールの付与のみであり、他のリソースに意図しない変更が無いことを確認する(実際に`Plan: 4 to add, 0 to change, 0 to destroy.`で、追加した4ロール以外への影響なしを確認)
 
 ## 3. 動作確認 — [ユーザーが手動で実行する作業]
 
