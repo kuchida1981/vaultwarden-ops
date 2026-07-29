@@ -7,7 +7,7 @@
 - [x] 1.1 **[実装]** `terraform/bootstrap/main.tf`の`google_project_service.required`に`iap.googleapis.com`を追加する
 - [x] 1.2 **[実装]** `terraform/bootstrap/main.tf`の`terraform_ci_roles`(`google_project_iam_member`)に`roles/iap.tunnelResourceAccessor`・`roles/compute.osAdminLogin`を追加する
 - [x] 1.3 **[実装]** なぜ`osAdminLogin`(`osLogin`ではない)が必要かのコメントを追記する(`/opt/vaultwarden/app`・`.env`・dockerソケットがroot所有でsudoが必要なため。n8n-opsの`terraform/bootstrap/main.tf`のコメントを参考にする)
-- [ ] 1.4 **[ユーザー手動]** `terraform/bootstrap`はCIから自動applyされないため、上記変更を反映するために手動で`terraform init -backend-config="bucket=<state_bucket>"` → `terraform apply`を実行する
+- [x] 1.4 **[ユーザー手動]** `terraform/bootstrap`はCIから自動applyされないため、上記変更を反映するために手動で`terraform init -backend-config="bucket=<state_bucket>"` → `terraform apply`を実行する
 
 ## 2. terraform/main: OS Login有効化とIAPファイアウォール
 
@@ -31,10 +31,10 @@
 
 ## 5. ロールアウトと動作確認
 
-- [ ] 5.1 **[ユーザー手動]** タスク1.4の`terraform apply`(bootstrap)が完了していることを確認する
-- [ ] 5.2 **[ユーザー手動]** タスク2の変更(OS Login・IAPファイアウォール)を含むPRを作成・マージし、既存の`terraform-apply.yml`の`production` Environment承認を実施してVMへ反映する
-- [ ] 5.3 **[ユーザー手動]** `gcloud auth login`等でローカルのgcloud CLI認証状態を整えた上で、`gcloud compute ssh vaultwarden --tunnel-through-iap --zone=<zone> --project=<project>`が手動で成功することを事前に検証する(IAP tunnel経路そのものの疎通確認)
-- [ ] 5.4 **[ユーザー手動]** タスク3・4の変更(`vaultwarden-deploy.yml`・README)を含むPRを作成・マージする
-- [ ] 5.5 **[ユーザー手動]** PR #46、またはその時点の最新のDependabotによるvaultwardenバージョンPRをマージし、`vaultwarden-deploy.yml`が起動して`production` Environmentの承認待ちで停止することを確認する
-- [ ] 5.6 **[ユーザー手動]** 承認を実施し、実際にVM上でイメージが更新されること(ログイン成功・添付ファイル表示・`/admin`パネルの動作)を確認する
-- [ ] 5.7 **[ユーザー手動]** 一連の動作確認が完了したら、`/opsx:archive`でこのchangeをアーカイブする
+- [x] 5.1 **[ユーザー手動]** タスク1.4の`terraform apply`(bootstrap)が完了していることを確認する
+- [x] 5.2 **[ユーザー手動]** タスク2の変更(OS Login・IAPファイアウォール)を含むPRを作成・マージし、既存の`terraform-apply.yml`の`production` Environment承認を実施してVMへ反映する
+- [x] 5.3 **[ユーザー手動]** `gcloud auth login`等でローカルのgcloud CLI認証状態を整えた上で、`gcloud compute ssh vaultwarden --tunnel-through-iap --zone=<zone> --project=<project>`が手動で成功することを事前に検証する(IAP tunnel経路そのものの疎通確認)
+- [x] 5.4 **[ユーザー手動]** タスク3・4の変更(`vaultwarden-deploy.yml`・README)を含むPRを作成・マージする
+- [x] 5.5 **[ユーザー手動]** PR #46、またはその時点の最新のDependabotによるvaultwardenバージョンPRをマージし、`vaultwarden-deploy.yml`が起動して`production` Environmentの承認待ちで停止することを確認する
+- [x] 5.6 **[ユーザー手動]** 承認を実施し、実際にVM上でイメージが更新されること(ログイン成功・添付ファイル表示・`/admin`パネルの動作)を確認する
+- [x] 5.7 **[ユーザー手動]** 一連の動作確認が完了したら、`/opsx:archive`でこのchangeをアーカイブする
