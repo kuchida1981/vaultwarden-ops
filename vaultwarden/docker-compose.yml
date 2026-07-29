@@ -3,7 +3,7 @@ services:
     # Pinned to a literal tag (not a variable) so Dependabot's
     # docker-compose ecosystem can detect and bump it - it cannot resolve
     # shell/env interpolation.
-    image: vaultwarden/server:1.36.0
+    image: vaultwarden/server:1.37.0
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN}
