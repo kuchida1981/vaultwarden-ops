@@ -5,7 +5,9 @@
 A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (Tokyo region). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
 
 - Public URL: `https://vaultwarden.u-rei.com` (family members access it normally from here)
-- SSH / Vaultwarden's `/admin` panel: only reachable via the Tailscale tailnet
+- SSH: routine operator access is only via the Tailscale tailnet (`tailscale ssh`). Vaultwarden version-update deploys are the sole exception — `vaultwarden-deploy.yml` SSHes as the CI service account over a GCP IAP tunnel, gated by manual approval (see "Updating Vaultwarden" below)
+- Vaultwarden's `/admin` panel: only reachable via the Tailscale tailnet
+- Version updates only reach production through `vaultwarden-deploy.yml` (gated by a GitHub Environment approval); merging the PR alone does not deploy anything (see "Updating Vaultwarden" below)
 - Data backup: pushed daily to a home Synology NAS via an rsync daemon over Tailscale (see below). Generation management is delegated to Btrfs snapshots on the NAS side
 - Uptime monitoring / alerting: an n8n workflow running on a separate host (not managed by this repository, built manually) periodically polls `https://vaultwarden.u-rei.com/alive` and notifies a dedicated Vaultwarden Discord channel on failure
 - Outbound email uses Brevo's SMTP relay (invitation emails, password hints, new device notifications, etc.). Vault recovery when the master password is completely forgotten (Organization Account Recovery / Emergency Access) is out of scope
@@ -19,10 +21,12 @@ flowchart TB
         caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
         disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
     end
-    admin["SSH only via tailscale ssh<br/>(port 22 is not exposed publicly)"]
+    admin["Operator SSH only via tailscale ssh<br/>(port 22 is not exposed publicly)"]
+    ci["vaultwarden-deploy.yml<br/>(approval-gated, GCP IAP tunnel only)"]
 
     internet -->|"443 only"| vm
     vm -->|"Tailscale (WireGuard)"| admin
+    vm -->|"GCP IAP tunnel (tcp:22)"| ci
 ```
 
 Terraform is split into two stages: `terraform/bootstrap` (applied manually, once) and `terraform/main` (applied continuously by GitHub Actions).
@@ -75,7 +79,7 @@ terraform output
 # terraform_ci_service_account_email
 ```
 
-**Updating an existing environment**: Since `terraform/bootstrap` is manual-apply-only (not run by GitHub Actions), if the CI service account's IAM permissions ever change, you need to re-run the same `terraform apply` command to pick up the change. Only the diff is applied; existing resources are untouched. Because state now lives in GCS, this can be done from any machine — just run `terraform init -backend-config="bucket=<state_bucket>"` first to reconnect to the shared state; there's no need to be on the machine that last applied it.
+**Updating an existing environment**: Since `terraform/bootstrap` is manual-apply-only (not run by GitHub Actions), if the CI service account's IAM permissions ever change (e.g. the `roles/iap.tunnelResourceAccessor` / `roles/compute.osAdminLogin` added for `vaultwarden-deploy.yml`), you need to re-run the same `terraform apply` command to pick up the change. Only the diff is applied; existing resources are untouched. Because state now lives in GCS, this can be done from any machine — just run `terraform init -backend-config="bucket=<state_bucket>"` first to reconnect to the shared state; there's no need to be on the machine that last applied it.
 
 **Plan is automated, apply is not**: `.github/workflows/terraform-plan.yml` runs `terraform plan` against `terraform/bootstrap` for every PR (including Dependabot's weekly provider-version PRs) and comments the result, using the same read-only-capable CI service account as `terraform/main`. `terraform-apply.yml` deliberately does **not** cover `terraform/bootstrap`: this directory creates the CI service account itself, its Workload Identity Federation pool, and its own project IAM bindings, so letting CI apply it would let that identity grant itself broader permissions unsupervised. Reviewing the CI-posted plan and then running `terraform apply` by hand (as above) remains the only way changes to `terraform/bootstrap` take effect.
 
@@ -178,6 +182,15 @@ https://vaultwarden.<your-tailnet-name>.ts.net/admin
 - Invite family members by entering their email addresses from `/admin`. Since SMTP is configured, invitation emails are sent automatically (also check the spam folder)
 - On the VM, run `systemctl start backup.service` and confirm the backup is transferred to the shared folder on the NAS
 
+## Updating Vaultwarden
+
+The vaultwarden image is pinned to a literal tag in `vaultwarden/docker-compose.yml`, and updates reach production through the following two-step approval process. Immediate/automatic rollout is not the goal; the expectation is a manual review each time Dependabot flags a new version.
+
+1. **Accept the version**: when Dependabot detects a new vaultwarden version, it opens a PR bumping the tag in `vaultwarden/docker-compose.yml`. Review the PR and merge it to `main` (nothing is deployed to the VM at this point)
+2. **Deploy it now**: the merge triggers `vaultwarden-deploy.yml`, which pauses waiting for approval on the `production` Environment (the same Environment `terraform-apply.yml` uses, configured in step 6 above). Once approved, the CI runner SSHes to the VM over a GCP IAP tunnel and runs `git pull --ff-only && docker compose pull && docker compose up -d`. The VM itself is never rebooted, so caddy's certificate/config data (`caddy_data`/`caddy_config`) is untouched
+
+After deploying, confirm you can log in at `https://vaultwarden.u-rei.com`, that existing attachments open, and that the `/admin` panel works.
+
 ## Restore procedure from NAS backup
 
 > **Note**: this procedure is a draft based on the design described in design.md, and has not yet been fully verified end-to-end on real hardware (see section 7 of `openspec/changes/add-nas-backup/tasks.md`). It's strongly recommended to verify this procedure once before an actual restore is ever needed.
@@ -200,5 +213,5 @@ https://vaultwarden.<your-tailnet-name>.ts.net/admin
 terraform/bootstrap/  … manual, applied once. GCS state bucket, WIF Pool, CI service account
 terraform/main/       … applied continuously by GitHub Actions. VM/firewall/disk/Secret Manager/Tailscale ACL
 vaultwarden/           … docker-compose.yml, Caddyfile
-.github/workflows/     … terraform plan (PR) / apply (main, with approval gate)
+.github/workflows/     … terraform plan (PR) / apply (main, with approval gate) / vaultwarden-deploy (changes under vaultwarden/, with approval gate)
 ```

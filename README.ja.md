@@ -5,7 +5,9 @@
 自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(東京リージョン)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
 
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
-- SSH / Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
+- SSH: 通常の運用者アクセスはTailscale tailnet経由(`tailscale ssh`)のみ。Vaultwardenのバージョン更新デプロイに限り、`vaultwarden-deploy.yml`が承認ゲートを経てGCP IAP tunnel経由でCI用サービスアカウントとしてSSHする(下記「Vaultwardenのバージョン更新」参照)
+- Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
+- バージョン更新の本番反映は`vaultwarden-deploy.yml`(GitHub Environment承認ゲート付き)経由でのみ行われ、PRマージだけでは自動反映されない(詳細は「Vaultwardenのバージョン更新」参照)
 - データバックアップ: 自宅Synology NASへ、Tailscale経由のrsyncデーモンで毎日プッシュ同期(下記参照)。世代管理はNAS側のBtrfsスナップショットに委譲
 - 稼働監視・アラート: 別ホストで運用しているn8nのワークフロー(本リポジトリの管理外、手動構築)が`https://vaultwarden.u-rei.com/alive`を定期的にポーリングし、失敗時にVaultwarden専用のDiscordチャンネルへ通知する
 - メール送信はBrevoのSMTPリレーを使用(招待メール・パスワードヒント・新規デバイス通知等)。マスターパスワードを完全に忘れた場合の保管庫復旧(Organization Account Recovery / Emergency Access)は別スコープ
@@ -19,10 +21,12 @@ flowchart TB
         caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
         disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
     end
-    admin["SSHはtailscale sshのみ<br/>(公開ファイアウォールで22番は非公開)"]
+    admin["運用者のSSHはtailscale sshのみ<br/>(公開ファイアウォールで22番は非公開)"]
+    ci["vaultwarden-deploy.yml<br/>(承認ゲート付き、GCP IAP tunnel限定)"]
 
     internet -->|"443 のみ"| vm
     vm -->|"Tailscale (WireGuard)"| admin
+    vm -->|"GCP IAP tunnel (tcp:22)"| ci
 ```
 
 Terraformは`terraform/bootstrap`(1回だけ手動apply)と`terraform/main`(GitHub Actionsが継続的にapply)の2段構成。
@@ -75,7 +79,7 @@ terraform output
 # terraform_ci_service_account_email
 ```
 
-**既存環境をアップデートする場合**: `terraform/bootstrap`はGitHub Actionsではなく手動apply専用のため、CI用サービスアカウントのIAM権限が変更されたときは、同じ`terraform apply`コマンドを再実行して反映させる必要がある。差分のみが適用され、既存リソースは壊れない。stateはGCS上にあるため、どのマシンからでも`terraform init -backend-config="bucket=<state_bucket>"`でstateに再接続すればよく、最後にapplyしたマシンである必要はない。
+**既存環境をアップデートする場合**: `terraform/bootstrap`はGitHub Actionsではなく手動apply専用のため、CI用サービスアカウントのIAM権限(例: `vaultwarden-deploy.yml`用に追加した`roles/iap.tunnelResourceAccessor`・`roles/compute.osAdminLogin`)が変更されたときは、同じ`terraform apply`コマンドを再実行して反映させる必要がある。差分のみが適用され、既存リソースは壊れない。stateはGCS上にあるため、どのマシンからでも`terraform init -backend-config="bucket=<state_bucket>"`でstateに再接続すればよく、最後にapplyしたマシンである必要はない。
 
 **planは自動化されているが、applyはされていない**: `.github/workflows/terraform-plan.yml`は、すべてのPR(dependabotによる週次providerバージョンアップPRを含む)に対して`terraform/bootstrap`への`terraform plan`を実行し、結果をコメントする。`terraform/main`と同じ読み取り権限を持つCI用サービスアカウントを使う。一方`terraform-apply.yml`は**意図的に`terraform/bootstrap`を対象外にしている**: このディレクトリはCI用サービスアカウント自身・そのWorkload Identity Federation Pool・そのSA自身へのproject IAMバインディングを作成する構成であり、CIがこれをapplyできると、そのIDが自分自身により広い権限を無監督で付与できてしまうため。CIが投稿したplanをレビューした上で、上記の通り手動で`terraform apply`することが、`terraform/bootstrap`への変更を反映する唯一の方法であることに変わりはない。
 
@@ -178,6 +182,15 @@ https://vaultwarden.<自分のtailnet名>.ts.net/admin
 - `/admin`から家族分のメールアドレスを入力して招待する。SMTP設定済みのため招待メールが自動送信される(迷惑フォルダも確認する)
 - VM上で`systemctl start backup.service`を実行し、NAS側の共有フォルダにバックアップが転送されることを確認する
 
+## Vaultwardenのバージョン更新
+
+vaultwardenイメージは`vaultwarden/docker-compose.yml`でリテラルタグ固定しており、更新は以下の2段階の承認を経て反映される。即時反映は意図しておらず、Dependabotが新バージョンを検知した都度、手動でレビューする運用を想定している。
+
+1. **バージョンを受け入れる**: Dependabotがvaultwardenの新バージョンを検知すると、`vaultwarden/docker-compose.yml`のタグ更新を提案するPRを自動作成する。PRをレビューし、`main`へマージする(この時点ではVMには一切反映されない)
+2. **今このタイミングで反映する**: マージをトリガーに`vaultwarden-deploy.yml`が起動し、`production` Environmentの承認待ちで一時停止する(手順6で設定した`production` Environmentを`terraform-apply.yml`と共有する)。承認すると、CIランナーがGCP IAP tunnel経由でVMへSSHし、`git pull --ff-only && docker compose pull && docker compose up -d`を実行する。VM自体の再起動は行わないため、caddyの証明書・設定データ(`caddy_data`・`caddy_config`)には影響しない
+
+反映後は、`https://vaultwarden.u-rei.com`へのログイン・既存添付ファイルの表示・`/admin`パネルの動作を確認する。
+
 ## NASバックアップからのリストア手順
 
 > **注意**: この手順はdesign.md記載の設計に基づく下書きであり、実機での通し検証はまだ行っていない(`openspec/changes/add-nas-backup/tasks.md`のセクション7を参照)。実際にリストアが必要になる前に、一度この手順通りに検証しておくことを強く推奨する。
@@ -200,5 +213,5 @@ https://vaultwarden.<自分のtailnet名>.ts.net/admin
 terraform/bootstrap/  … 手動・1回だけapply。GCS state bucket, WIF Pool, CI用SA
 terraform/main/       … GitHub Actionsが継続的にapply。VM/FW/Disk/Secret Manager/Tailscale ACL
 vaultwarden/           … docker-compose.yml, Caddyfile
-.github/workflows/     … terraform plan(PR) / apply(main, 承認ゲート付き)
+.github/workflows/     … terraform plan(PR) / apply(main, 承認ゲート付き) / vaultwarden-deploy(vaultwarden/配下の変更、承認ゲート付き)
 ```

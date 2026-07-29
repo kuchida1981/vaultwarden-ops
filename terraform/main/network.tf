@@ -23,6 +23,26 @@ resource "google_compute_firewall" "allow_web" {
 # public internet. All administrative access happens over `tailscale ssh`,
 # which tunnels through the Tailscale WireGuard interface rather than GCP's
 # network stack, so no corresponding ingress rule is needed here.
+#
+# vaultwarden-deploy.yml reaches the VM via `gcloud compute ssh
+# --tunnel-through-iap` (see add-vaultwarden-deploy-pipeline's design.md),
+# which - unlike `tailscale ssh` - actually forwards a tcp:22 packet into the
+# VPC via IAP, so it needs its own ingress rule. Scoped to IAP's documented
+# source range only, and to this VM's tag only - no other source can reach
+# tcp:22 through this rule.
+resource "google_compute_firewall" "allow_iap_ssh" {
+  name    = "vaultwarden-allow-iap-ssh"
+  project = var.project_id
+  network = data.google_compute_network.default.self_link
+
+  allow {
+    protocol = "tcp"
+    ports    = ["22"]
+  }
+
+  source_ranges = ["35.235.240.0/20"]
+  target_tags   = ["vaultwarden-server"]
+}
 
 resource "google_compute_address" "vaultwarden" {
   name    = "vaultwarden-static-ip"

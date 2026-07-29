@@ -39,6 +39,14 @@ resource "google_compute_instance" "vaultwarden" {
   }
 
   metadata = {
+    # Lets vaultwarden-deploy.yml reach this VM via `gcloud compute ssh
+    # --tunnel-through-iap` under the CI service account's own IAM identity
+    # (roles/compute.osAdminLogin, granted in terraform/bootstrap), without a
+    # persistent SSH key to manage. Does not affect `tailscale ssh`, which
+    # tunnels through the Tailscale WireGuard interface and never consults
+    # OS Login.
+    enable-oslogin = "TRUE"
+
     startup-script = templatefile("${path.module}/templates/startup-script.sh.tftpl", {
       project_id                    = var.project_id
       domain                        = var.domain
