@@ -48,4 +48,8 @@ resource "google_compute_address" "vaultwarden" {
   name    = "vaultwarden-static-ip"
   project = var.project_id
   region  = var.region
+
+  labels = {
+    app = "vaultwarden"
+  }
 }

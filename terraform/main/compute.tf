@@ -5,6 +5,12 @@ resource "google_compute_instance" "vaultwarden" {
   machine_type = "e2-micro"
   tags         = ["vaultwarden-server"]
 
+  # Lets Billing Reports be grouped by label to see vaultwarden's compute
+  # cost separately from n8n's, since both VMs live in the same project.
+  labels = {
+    app = "vaultwarden"
+  }
+
   boot_disk {
     initialize_params {
       image = "debian-cloud/debian-13"

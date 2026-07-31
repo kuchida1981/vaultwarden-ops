@@ -12,6 +12,10 @@ resource "google_compute_disk" "vaultwarden_data" {
   type = "pd-balanced"
   size = 10
 
+  labels = {
+    app = "vaultwarden"
+  }
+
   lifecycle {
     prevent_destroy = true
   }
