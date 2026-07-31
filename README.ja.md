@@ -114,7 +114,7 @@ VaultwardenからのメールはBrevoのSMTPリレー経由で送信する。
 
 ### 4. NASへの定期バックアップ用Rsyncサーバーの設定(手動)
 
-VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップショット・添付ファイル・Send・署名鍵・設定ファイル)をrsyncデーモン経由でプッシュ同期する。認証はSSH鍵ではなくrsyncd自体のパスワードのみで、通信はTailscaleのWireGuardトンネル内に閉じるため、この単純さは許容している(詳細は`openspec/changes/add-nas-backup/design.md`参照)。
+VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップショット・添付ファイル・Send・署名鍵・設定ファイル)をrsyncデーモン経由でプッシュ同期する。認証はSSH鍵ではなくrsyncd自体のパスワードのみで、通信はTailscaleのWireGuardトンネル内に閉じるため、この単純さは許容している(詳細は`openspec/changes/archive/2026-07-12-add-nas-backup/design.md`参照)。
 
 1. NASがVMと同じTailscale tailnetに参加していることを確認する(`tailscale ping <NASのホスト名>`で疎通確認)
 2. NASのコントロールパネル→ファイルサービス→rsyncで「Rsyncサーバー」を有効化する
@@ -187,13 +187,13 @@ https://vaultwarden.<自分のtailnet名>.ts.net/admin
 vaultwardenイメージは`vaultwarden/docker-compose.yml`でリテラルタグ固定しており、更新は以下の2段階の承認を経て反映される。即時反映は意図しておらず、Dependabotが新バージョンを検知した都度、手動でレビューする運用を想定している。
 
 1. **バージョンを受け入れる**: Dependabotがvaultwardenの新バージョンを検知すると、`vaultwarden/docker-compose.yml`のタグ更新を提案するPRを自動作成する。PRをレビューし、`main`へマージする(この時点ではVMには一切反映されない)
-2. **今このタイミングで反映する**: マージをトリガーに`vaultwarden-deploy.yml`が起動し、`production` Environmentの承認待ちで一時停止する(手順6で設定した`production` Environmentを`terraform-apply.yml`と共有する)。承認すると、CIランナーがGCP IAP tunnel経由でVMへSSHし、`git pull --ff-only && docker compose pull && docker compose up -d`を実行する。VM自体の再起動は行わないため、caddyの証明書・設定データ(`caddy_data`・`caddy_config`)には影響しない
+2. **今このタイミングで反映する**: マージをトリガーに`vaultwarden-deploy.yml`が起動し、`production` Environmentの承認待ちで一時停止する(手順6で設定した`production` Environmentを`terraform-apply.yml`と共有する)。承認すると、CIランナーがGCP IAP tunnel経由でVMへSSHし、`git pull --ff-only && docker compose --env-file /opt/vaultwarden/.env pull && docker compose --env-file /opt/vaultwarden/.env up -d`を実行する。VM自体の再起動は行わないため、caddyの証明書・設定データ(`caddy_data`・`caddy_config`)には影響しない
 
 反映後は、`https://vaultwarden.u-rei.com`へのログイン・既存添付ファイルの表示・`/admin`パネルの動作を確認する。
 
 ## NASバックアップからのリストア手順
 
-> **注意**: この手順はdesign.md記載の設計に基づく下書きであり、実機での通し検証はまだ行っていない(`openspec/changes/add-nas-backup/tasks.md`のセクション7を参照)。実際にリストアが必要になる前に、一度この手順通りに検証しておくことを強く推奨する。
+> **注意**: この手順はdesign.md記載の設計に基づく下書きであり、実機での通し検証はまだ行っていない(`openspec/changes/archive/2026-07-12-add-nas-backup/tasks.md`のセクション7を参照)。実際にリストアが必要になる前に、一度この手順通りに検証しておくことを強く推奨する。
 
 1. NASのBtrfsスナップショット一覧(DSMスナップショットマネージャ、または共有フォルダの`@GMT-<timestamp>`隠しディレクトリ)から復元したい世代を選ぶ
 2. VM上でVaultwardenを停止する: `docker compose -f /opt/vaultwarden/app/vaultwarden/docker-compose.yml --env-file /opt/vaultwarden/.env stop vaultwarden`(リストアは非常時作業のため、通常運用時と異なりここでは無停止化にこだわらない)

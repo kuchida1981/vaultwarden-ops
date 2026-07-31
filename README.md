@@ -114,7 +114,7 @@ Emails from Vaultwarden are sent via Brevo's SMTP relay.
 
 ### 4. Set up the rsync server on the NAS for periodic backups (manual)
 
-Every day, the VM push-syncs Vaultwarden's data (a consistent DB snapshot, attachments, Send, signing keys, config files) to the Synology NAS via an rsync daemon. Authentication uses only the rsyncd password itself rather than SSH keys, and since the traffic stays within the Tailscale WireGuard tunnel, this level of simplicity is considered acceptable (see `openspec/changes/add-nas-backup/design.md` for details).
+Every day, the VM push-syncs Vaultwarden's data (a consistent DB snapshot, attachments, Send, signing keys, config files) to the Synology NAS via an rsync daemon. Authentication uses only the rsyncd password itself rather than SSH keys, and since the traffic stays within the Tailscale WireGuard tunnel, this level of simplicity is considered acceptable (see `openspec/changes/archive/2026-07-12-add-nas-backup/design.md` for details).
 
 1. Confirm the NAS is on the same Tailscale tailnet as the VM (verify connectivity with `tailscale ping <NAS-hostname>`)
 2. On the NAS control panel, go to File Services → rsync and enable "Rsync Server"
@@ -187,13 +187,13 @@ https://vaultwarden.<your-tailnet-name>.ts.net/admin
 The vaultwarden image is pinned to a literal tag in `vaultwarden/docker-compose.yml`, and updates reach production through the following two-step approval process. Immediate/automatic rollout is not the goal; the expectation is a manual review each time Dependabot flags a new version.
 
 1. **Accept the version**: when Dependabot detects a new vaultwarden version, it opens a PR bumping the tag in `vaultwarden/docker-compose.yml`. Review the PR and merge it to `main` (nothing is deployed to the VM at this point)
-2. **Deploy it now**: the merge triggers `vaultwarden-deploy.yml`, which pauses waiting for approval on the `production` Environment (the same Environment `terraform-apply.yml` uses, configured in step 6 above). Once approved, the CI runner SSHes to the VM over a GCP IAP tunnel and runs `git pull --ff-only && docker compose pull && docker compose up -d`. The VM itself is never rebooted, so caddy's certificate/config data (`caddy_data`/`caddy_config`) is untouched
+2. **Deploy it now**: the merge triggers `vaultwarden-deploy.yml`, which pauses waiting for approval on the `production` Environment (the same Environment `terraform-apply.yml` uses, configured in step 6 above). Once approved, the CI runner SSHes to the VM over a GCP IAP tunnel and runs `git pull --ff-only && docker compose --env-file /opt/vaultwarden/.env pull && docker compose --env-file /opt/vaultwarden/.env up -d`. The VM itself is never rebooted, so caddy's certificate/config data (`caddy_data`/`caddy_config`) is untouched
 
 After deploying, confirm you can log in at `https://vaultwarden.u-rei.com`, that existing attachments open, and that the `/admin` panel works.
 
 ## Restore procedure from NAS backup
 
-> **Note**: this procedure is a draft based on the design described in design.md, and has not yet been fully verified end-to-end on real hardware (see section 7 of `openspec/changes/add-nas-backup/tasks.md`). It's strongly recommended to verify this procedure once before an actual restore is ever needed.
+> **Note**: this procedure is a draft based on the design described in design.md, and has not yet been fully verified end-to-end on real hardware (see section 7 of `openspec/changes/archive/2026-07-12-add-nas-backup/tasks.md`). It's strongly recommended to verify this procedure once before an actual restore is ever needed.
 
 1. Choose the generation to restore from the NAS's list of Btrfs snapshots (DSM Snapshot Manager, or the hidden `@GMT-<timestamp>` directory in the shared folder)
 2. Stop Vaultwarden on the VM: `docker compose -f /opt/vaultwarden/app/vaultwarden/docker-compose.yml --env-file /opt/vaultwarden/.env stop vaultwarden` (since a restore is an emergency operation, zero-downtime is not a concern here, unlike normal operations)
