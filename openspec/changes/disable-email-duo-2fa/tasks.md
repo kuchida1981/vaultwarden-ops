@@ -1,15 +1,15 @@
 ## 1. 事前確認
 
-- [ ] 1.1 家族のうちメールアドレスを2FA手段として設定済みの人がいないか確認する(いる場合はTOTPまたはWebAuthnへの切り替えを依頼する)
+- [x] 1.1 家族のうちメールアドレスを2FA手段として設定済みの人がいないか確認する(いる場合はTOTPまたはWebAuthnへの切り替えを依頼する) — 該当者なしを確認済み
 
 ## 2. 設定ファイルの変更
 
-- [ ] 2.1 `vaultwarden/docker-compose.yml` の `vaultwarden.environment` に `_ENABLE_EMAIL_2FA: "false"` と `_ENABLE_DUO: "false"` を追加する
-- [ ] 2.2 `vaultwarden/.env.example` にコメント等で今回の2FA制限方針を明記する(必要なら)
+- [x] 2.1 `vaultwarden/docker-compose.yml` の `vaultwarden.environment` に `_ENABLE_EMAIL_2FA: "false"` と `_ENABLE_DUO: "false"` を追加する
+- [x] 2.2 `vaultwarden/.env.example` にコメント等で今回の2FA制限方針を明記する(必要なら) — 不要と判断: `SIGNUPS_ALLOWED`/`WEBSOCKET_ENABLED`と同じく、この2値は環境に依存しない固定フラグなので`.env`経由ではなく`docker-compose.yml`に直接リテラルで書く既存パターンに合わせた
 
 ## 3. Terraform起動スクリプトの変更
 
-- [ ] 3.1 `terraform/main/templates/startup-script.sh.tftpl` が生成する `/opt/vaultwarden/.env` のヒアドキュメントに `_ENABLE_EMAIL_2FA=false` と `_ENABLE_DUO=false` を追加する
+- [x] 3.1 `terraform/main/templates/startup-script.sh.tftpl` が生成する `/opt/vaultwarden/.env` のヒアドキュメントに `_ENABLE_EMAIL_2FA=false` と `_ENABLE_DUO=false` を追加する — 不要と判断: 上記の通り`docker-compose.yml`に直接リテラルで書いたため、Terraform生成`.env`側の変更は不要(`SIGNUPS_ALLOWED`もこの`.env`には登場しない)
 
 ## 4. デプロイと検証
 
