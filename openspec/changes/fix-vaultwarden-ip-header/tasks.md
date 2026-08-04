@@ -1,10 +1,10 @@
 ## 1. docker-compose.yml の変更
 
-- [ ] 1.1 `vaultwarden/docker-compose.yml` の `vaultwarden` サービスの `environment` に `IP_HEADER: "X-Forwarded-For"` を追加する
+- [x] 1.1 `vaultwarden/docker-compose.yml` の `vaultwarden` サービスの `environment` に `IP_HEADER: "X-Forwarded-For"` を追加する
 
 ## 2. Caddyfile へのコメント追加
 
-- [ ] 2.1 `vaultwarden/Caddyfile` に、`trusted_proxies` が未設定である前提が `X-Forwarded-For` のなりすまし耐性の根拠であることを説明するコメントを追加する(design.mdのDecision 2参照)
+- [x] 2.1 `vaultwarden/Caddyfile` に、`trusted_proxies` が未設定である前提が `X-Forwarded-For` のなりすまし耐性の根拠であることを説明するコメントを追加する(design.mdのDecision 2参照)
 
 ## 3. デプロイと確認
 

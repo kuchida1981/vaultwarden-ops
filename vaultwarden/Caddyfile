@@ -1,6 +1,18 @@
 {$DOMAIN} {
 	encode gzip
 
+	# trusted_proxies is deliberately left unset everywhere in this file:
+	# Caddy sits directly at the internet edge here (no proxy in front of
+	# it), so an unset trusted_proxies makes Caddy discard/overwrite any
+	# client-supplied X-Forwarded-For with its own observed connection IP
+	# rather than appending to it (see addForwardedHeaders in Caddy's
+	# reverseproxy module). Vaultwarden (IP_HEADER=X-Forwarded-For in
+	# docker-compose.yml) only trusts the leftmost value of that header,
+	# so this is what makes the leftmost value trustworthy instead of
+	# spoofable by the client. If a trusted_proxies entry (or another
+	# proxy hop) is ever added here, Vaultwarden's client IP detection
+	# would need to be reassessed alongside it.
+	#
 	# Vaultwarden's websocket endpoint for live sync notifications.
 	reverse_proxy /notifications/hub vaultwarden:3012
 
