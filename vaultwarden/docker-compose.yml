@@ -10,6 +10,11 @@ services:
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       SIGNUPS_ALLOWED: "false"
       WEBSOCKET_ENABLED: "true"
+      # Caddy's reverse_proxy sends X-Forwarded-For by default (not
+      # X-Real-IP, which is Vaultwarden's own default expectation) - see
+      # the trusted_proxies comment in Caddyfile for why trusting the
+      # leftmost value of this header is safe in this topology.
+      IP_HEADER: "X-Forwarded-For"
       # Email 2FA is weaker than TOTP/WebAuthn (mailbox itself is an attack
       # target), so it's dropped from the selectable 2FA methods.
       # Note: Duo is intentionally NOT disabled here. _ENABLE_DUO only
