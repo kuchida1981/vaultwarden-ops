@@ -1,9 +1,18 @@
 services:
   vaultwarden:
-    # Pinned to a literal tag (not a variable) so Dependabot's
-    # docker-compose ecosystem can detect and bump it - it cannot resolve
-    # shell/env interpolation.
-    image: vaultwarden/server:1.37.1
+    # TEMPORARY test build: custom image from kuchida1981/vaultwarden
+    # branch fix/webauthn-appid-migrated-only (based on the official
+    # 1.37.1 tag), which only sends the U2F appid WebAuthn extension
+    # for credentials actually migrated from U2F. Testing whether this
+    # is why a natively-registered Titan Security Key can't complete
+    # 2FA login (see vaultwarden-ops issue #67). Revert this line to
+    # `vaultwarden/server:1.37.1` (restoring the Dependabot-trackable
+    # literal tag noted below) once the test is done either way.
+    #
+    # Original comment: pinned to a literal tag (not a variable) so
+    # Dependabot's docker-compose ecosystem can detect and bump it - it
+    # cannot resolve shell/env interpolation.
+    image: ghcr.io/kuchida1981/vaultwarden:1.37.1-appid-fix
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN}
