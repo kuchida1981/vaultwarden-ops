@@ -16,6 +16,22 @@
 	# Vaultwarden's websocket endpoint for live sync notifications.
 	reverse_proxy /notifications/hub vaultwarden:3012
 
+	# Debugging aid for the Titan-key WebAuthn 2FA issue: Vaultwarden's own
+	# AppHeaders fairing (src/util.rs) skips CSP and X-Frame-Options for
+	# *-connector.html responses (its own comment explains this is because
+	# strict headers there break WebAuthn/Duo MFA popups), but it does NOT
+	# skip Permissions-Policy, which is sent with every named feature
+	# (including no publickey-credentials-get entry) locked to `()`. This
+	# override adds an explicit allow for the WebAuthn features on that one
+	# route only, to test whether that's what's blocking the FIDO2
+	# ceremony that runs inside webauthn-connector.html's iframe. Revert
+	# this block once the test is done either way.
+	handle /webauthn-connector.html* {
+		reverse_proxy vaultwarden:80 {
+			header_down Permissions-Policy "publickey-credentials-get=(self), publickey-credentials-create=(self)"
+		}
+	}
+
 	# Admin panel: never reachable from the public domain, unconditionally.
 	# {$DOMAIN}'s public DNS A record always resolves to the VM's public IP,
 	# so there is no source IP a request through this domain could arrive
