@@ -71,11 +71,30 @@ jobs:
             --zone=asia-northeast1-b \
             --tunnel-through-iap \
             --quiet \
-            --command='sudo bash -c "cd /opt/vaultwarden/app && git pull --ff-only && cd vaultwarden && docker compose --env-file /opt/vaultwarden/.env pull && docker compose --env-file /opt/vaultwarden/.env up -d"'
+            --command='sudo bash -c "cd /opt/vaultwarden/app && git pull --ff-only && cd vaultwarden && docker compose --env-file /opt/vaultwarden/.env pull && docker compose --env-file /opt/vaultwarden/.env up -d --force-recreate caddy && docker compose --env-file /opt/vaultwarden/.env up -d"'
           # No `|| echo WARNING` fallback here (unlike the startup-script's
           # boot-time git pull): a deploy run's whole point is a legible
           # pass/fail signal in the Actions UI, so a pull failure must fail
           # the job rather than being silently swallowed.
+          #
+          # `--force-recreate caddy` on every run, unconditionally: Caddyfile
+          # is a single-file bind mount (`./Caddyfile:/etc/caddy/Caddyfile:ro`
+          # in docker-compose.yml), and `git pull` replaces that file via a
+          # new inode rather than editing it in place, so a plain
+          # `docker compose up -d` (which only recreates a container when the
+          # compose service definition itself changed) leaves an
+          # already-running caddy container's bind mount pointing at the old,
+          # deleted inode - `caddy reload` doesn't fix this either, since the
+          # mount itself, not just Caddy's in-process config, is stale. caddy
+          # holds no state of its own, so recreating it unconditionally on
+          # every deploy of this workflow (already gated behind a path filter
+          # and a manual production-environment approval, so not a hot path)
+          # is cheap. The second `up -d` afterwards is the normal, unforced
+          # command, so vaultwarden itself is only recreated when its own
+          # service definition actually changed (e.g. an image bump) - it
+          # holds live user sessions/websockets, so it shouldn't be
+          # unconditionally bounced on a Caddyfile-only change the way caddy
+          # is.
 
       - name: Mark commit as deployed
         run: |
