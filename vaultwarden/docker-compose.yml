@@ -1,9 +1,23 @@
 services:
   vaultwarden:
-    # Pinned to a literal tag (not a variable) so Dependabot's
-    # docker-compose ecosystem can detect and bump it - it cannot resolve
-    # shell/env interpolation.
-    image: vaultwarden/server:1.37.1
+    # TEMPORARY test build: custom image from kuchida1981/vaultwarden
+    # branch fix/webauthn-registration-uv-preferred (based on the
+    # official 1.37.1 tag), which changes WebAuthn 2FA *registration*
+    # to request UserVerificationPolicy::Preferred instead of
+    # Discouraged. Testing whether this is why a Google Titan Security
+    # Key registered via Chrome (no PIN prompt, no UV) can't complete
+    # 2FA login afterwards (see vaultwarden-ops issue #67 - traced to
+    # UV not being performed at registration; re-registering the same
+    # key via Firefox, which prompts for the PIN despite the
+    # discouraged hint, already fixes login from both browsers).
+    # Revert this line to `vaultwarden/server:1.37.1` (restoring the
+    # Dependabot-trackable literal tag noted below) once the test is
+    # done either way.
+    #
+    # Original comment: pinned to a literal tag (not a variable) so
+    # Dependabot's docker-compose ecosystem can detect and bump it - it
+    # cannot resolve shell/env interpolation.
+    image: ghcr.io/kuchida1981/vaultwarden:1.37.1-uv-preferred-fix-amd64
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN}
