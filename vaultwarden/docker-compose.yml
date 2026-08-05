@@ -1,23 +1,29 @@
 services:
   vaultwarden:
-    # TEMPORARY test build: custom image from kuchida1981/vaultwarden
-    # branch fix/webauthn-registration-uv-preferred (based on the
-    # official 1.37.1 tag), which changes WebAuthn 2FA *registration*
-    # to request UserVerificationPolicy::Preferred instead of
-    # Discouraged. Testing whether this is why a Google Titan Security
-    # Key registered via Chrome (no PIN prompt, no UV) can't complete
-    # 2FA login afterwards (see vaultwarden-ops issue #67 - traced to
-    # UV not being performed at registration; re-registering the same
-    # key via Firefox, which prompts for the PIN despite the
-    # discouraged hint, already fixes login from both browsers).
-    # Revert this line to `vaultwarden/server:1.37.1` (restoring the
-    # Dependabot-trackable literal tag noted below) once the test is
-    # done either way.
+    # TEMPORARY test build (v2): custom image from
+    # kuchida1981/vaultwarden branch fix/webauthn-registration-uv-preferred
+    # (based on the official 1.37.1 tag). v1 (this same branch's first
+    # commit) only fixed WebAuthn 2FA *registration* to request
+    # UserVerificationPolicy::Preferred instead of Discouraged - real
+    # Chrome testing against v1 showed registration now correctly
+    # prompts for the security key's PIN, but login afterwards failed
+    # for the newly-registered credential with "authentication code is
+    # incorrect" (regardless of browser). Root cause: webauthn-rs-core
+    # only enforces UV at login when the credential's stored
+    # registration_policy is Preferred/Required and it was actually
+    # verified at registration - v1 left login forcing Discouraged, so
+    # neither browser was ever asked to perform UV during the login
+    # ceremony, so the resulting assertion never carried the UV flag
+    # the library now required. v2 additionally requests Preferred at
+    # login to match. See vaultwarden-ops issue #67 for the full
+    # investigation. Revert this line to `vaultwarden/server:1.37.1`
+    # (restoring the Dependabot-trackable literal tag noted below) once
+    # the test is done either way.
     #
     # Original comment: pinned to a literal tag (not a variable) so
     # Dependabot's docker-compose ecosystem can detect and bump it - it
     # cannot resolve shell/env interpolation.
-    image: ghcr.io/kuchida1981/vaultwarden:1.37.1-uv-preferred-fix-amd64
+    image: ghcr.io/kuchida1981/vaultwarden:1.37.1-uv-preferred-fix-v2-amd64
     restart: unless-stopped
     environment:
       DOMAIN: ${DOMAIN}
