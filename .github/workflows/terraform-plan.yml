@@ -23,6 +23,10 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
+    # Feeds the auto-merge job below: no terraform/main changes in this PR
+    # is just as safe as a plan that ran and found nothing to change.
+    outputs:
+      no_changes: ${{ steps.changes.outputs.relevant != 'true' || steps.plan.outputs.no_changes == 'true' }}
     defaults:
       run:
         working-directory: terraform/main
@@ -63,6 +67,7 @@ jobs:
 
       - name: Terraform Plan
         if: steps.changes.outputs.relevant == 'true'
+        id: plan
         env:
           TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
           TF_VAR_github_repo: ${{ github.repository }}
@@ -77,10 +82,23 @@ jobs:
         # check - as green. `set -o pipefail` makes the step fail when
         # terraform does; `2>&1` also gets the actual error text into
         # plan.txt so it shows up in the PR comment below instead of only
-        # in the Actions log.
+        # in the Actions log. `-detailed-exitcode` distinguishes a clean
+        # "nothing to change" (0) from "changes present" (2) from a real
+        # error (1), which the auto-merge job below relies on; the `if`
+        # around it is needed because the runner's default `-eo pipefail`
+        # shell would otherwise abort the step the instant terraform exits
+        # 2, before we get to inspect that exit code ourselves.
         run: |
           set -o pipefail
-          terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt
+          if terraform plan -no-color -detailed-exitcode -out=tfplan 2>&1 | tee plan.txt; then
+            plan_exit=0
+          else
+            plan_exit=$?
+          fi
+          if [ "$plan_exit" -eq 1 ]; then
+            exit 1
+          fi
+          echo "no_changes=$([ "$plan_exit" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Comment plan on PR
         if: steps.changes.outputs.relevant == 'true'
@@ -109,6 +127,10 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
+    # Feeds the auto-merge job below: no terraform/bootstrap changes in this
+    # PR is just as safe as a plan that ran and found nothing to change.
+    outputs:
+      no_changes: ${{ steps.changes.outputs.relevant != 'true' || steps.plan.outputs.no_changes == 'true' }}
     defaults:
       run:
         working-directory: terraform/bootstrap
@@ -148,12 +170,23 @@ jobs:
 
       - name: Terraform Plan
         if: steps.changes.outputs.relevant == 'true'
+        id: plan
         env:
           TF_VAR_project_id: ${{ secrets.GCP_PROJECT_ID }}
           TF_VAR_github_repo: ${{ github.repository }}
+        # See the "plan" job's Terraform Plan step above for why this is
+        # wrapped in `if` and what -detailed-exitcode buys us.
         run: |
           set -o pipefail
-          terraform plan -no-color -out=tfplan 2>&1 | tee plan.txt
+          if terraform plan -no-color -detailed-exitcode -out=tfplan 2>&1 | tee plan.txt; then
+            plan_exit=0
+          else
+            plan_exit=$?
+          fi
+          if [ "$plan_exit" -eq 1 ]; then
+            exit 1
+          fi
+          echo "no_changes=$([ "$plan_exit" -eq 0 ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
       - name: Comment plan on PR
         if: steps.changes.outputs.relevant == 'true'
@@ -170,3 +203,35 @@ jobs:
               repo: context.repo.repo,
               body,
             });
+
+  # Auto-merges dependabot's own terraform PRs once both plans confirm the
+  # bump doesn't change anything - patch/minor only. A "no changes" plan
+  # only proves *today's* code is unaffected; it says nothing about
+  # provider deprecations or behavior changes that would only surface on
+  # some future apply, so major bumps always go to a human.
+  auto-merge:
+    needs: [plan, plan-bootstrap]
+    if: |
+      github.event_name == 'pull_request_target' &&
+      github.actor == 'dependabot[bot]'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    steps:
+      - name: Dependabot metadata
+        id: metadata
+        uses: dependabot/fetch-metadata@v2
+        with:
+          github-token: "${{ secrets.GITHUB_TOKEN }}"
+
+      - name: Enable auto-merge
+        if: |
+          steps.metadata.outputs.package-ecosystem == 'terraform' &&
+          steps.metadata.outputs.update-type != 'version-update:semver-major' &&
+          needs.plan.outputs.no_changes == 'true' &&
+          needs.plan-bootstrap.outputs.no_changes == 'true'
+        run: gh pr merge --auto --merge "$PR_URL"
+        env:
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
