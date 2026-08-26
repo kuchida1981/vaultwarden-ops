@@ -23,6 +23,15 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
+    # Same group as terraform-apply.yml's "apply" job: both act on the
+    # terraform/main GCS state, and without this, concurrent runs (e.g.
+    # several dependabot PRs landing at once, or a plan racing an apply)
+    # fight over the same state lock and fail with "Error acquiring the
+    # state lock" instead of the real plan/apply result. cancel-in-progress
+    # is left false (the default) so runs queue instead of one canceling
+    # another - "plan" is a required check and must always finish.
+    concurrency:
+      group: tfstate-main
     # Feeds the auto-merge job below: no terraform/main changes in this PR
     # is just as safe as a plan that ran and found nothing to change.
     outputs:
@@ -148,6 +157,11 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
+    # Serializes concurrent runs against the terraform/bootstrap GCS state
+    # (e.g. several dependabot PRs landing at once) - see the "plan" job's
+    # concurrency comment above for why this is needed.
+    concurrency:
+      group: tfstate-bootstrap
     # Feeds the auto-merge job below: no terraform/bootstrap changes in this
     # PR is just as safe as a plan that ran and found nothing to change.
     outputs:
