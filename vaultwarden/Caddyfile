@@ -12,9 +12,6 @@
 	# spoofable by the client. If a trusted_proxies entry (or another
 	# proxy hop) is ever added here, Vaultwarden's client IP detection
 	# would need to be reassessed alongside it.
-	#
-	# Vaultwarden's websocket endpoint for live sync notifications.
-	reverse_proxy /notifications/hub vaultwarden:3012
 
 	# Admin panel: never reachable from the public domain, unconditionally.
 	# {$DOMAIN}'s public DNS A record always resolves to the VM's public IP,
