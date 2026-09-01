@@ -1,10 +1,10 @@
 ## 1. ワークフローファイルの作成
 
-- [ ] 1.1 `.github/workflows/lint.yml`を新規作成し、`on: pull_request`(パスフィルタなし、GCP認証ステップなし)で起動するようにする
-- [ ] 1.2 `terraform-validate`ジョブ: `terraform/main`と`terraform/bootstrap`をmatrix(またはstepの繰り返し)で対象にし、各ディレクトリで`terraform init -backend=false`→`terraform validate`を実行する
-- [ ] 1.3 `tflint`ジョブ: `terraform/main`と`terraform/bootstrap`をmatrix(またはstepの繰り返し)で対象にし、デフォルトのcore rulesetで実行する(`terraform-linters/setup-tflint`アクション、またはdockerイメージ経由)
-- [ ] 1.4 `shellcheck`ジョブ: `terraform/main/templates/startup-script.sh.tftpl`に対して`--exclude=SC2154,SC1091`を指定して実行し、除外理由をワークフローファイル内にコメントで明記する
-- [ ] 1.5 `caddy-validate`ジョブ: `vaultwarden/Caddyfile`に対して`caddy:2.11.4`イメージ(docker-compose.ymlのバージョンと同一)で`caddy validate --config`を実行する(ダミーの`DOMAIN`環境変数を与える)
+- [x] 1.1 `.github/workflows/lint.yml`を新規作成し、`on: pull_request`(パスフィルタなし、GCP認証ステップなし)で起動するようにする
+- [x] 1.2 `terraform-validate`ジョブ: `terraform/main`と`terraform/bootstrap`をmatrix(またはstepの繰り返し)で対象にし、各ディレクトリで`terraform init -backend=false`→`terraform validate`を実行する
+- [x] 1.3 `tflint`ジョブ: `terraform/main`と`terraform/bootstrap`をmatrix(またはstepの繰り返し)で対象にし、デフォルトのcore rulesetで実行する(`terraform-linters/setup-tflint`アクション、またはdockerイメージ経由)
+- [x] 1.4 `shellcheck`ジョブ: `terraform/main/templates/startup-script.sh.tftpl`に対して`--exclude=SC2154,SC1091`を指定して実行し、除外理由をワークフローファイル内にコメントで明記する
+- [x] 1.5 `caddy-validate`ジョブ: `vaultwarden/Caddyfile`に対して`caddy:2.11.4`イメージ(docker-compose.ymlのバージョンと同一)で`caddy validate --config`を実行する(ダミーの`DOMAIN`環境変数を与える)
 
 ## 2. 検証
 
