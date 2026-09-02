@@ -48,7 +48,7 @@ jobs:
         working-directory: ${{ matrix.dir }}
     steps:
       - uses: actions/checkout@v7
-      - uses: terraform-linters/setup-tflint@v4
+      - uses: terraform-linters/setup-tflint@v6
       - run: tflint
 
   # shellcheck ships preinstalled on GitHub-hosted ubuntu-latest runners, so

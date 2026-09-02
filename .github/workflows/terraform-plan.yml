@@ -30,8 +30,24 @@ jobs:
     # state lock" instead of the real plan/apply result. cancel-in-progress
     # is left false (the default) so runs queue instead of one canceling
     # another - "plan" is a required check and must always finish.
+    #
+    # The group is only "tfstate-main" when this job's own `if` above will
+    # actually let it run terraform. Every dependabot PR fires both
+    # `pull_request` and `pull_request_target`, and the one that the `if`
+    # will skip still claims a concurrency slot before that condition is
+    # evaluated - GitHub's queue treats the newer request as higher
+    # priority and cancels the older, currently-running "real" plan instead
+    # of just queuing behind it, even with cancel-in-progress: false. Giving
+    # the always-skipped run its own per-run group keeps it out of
+    # "tfstate-main" entirely, so it can no longer preempt a real plan.
     concurrency:
-      group: tfstate-main
+      group: |-
+        ${{
+          ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
+           (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]'))
+          && 'tfstate-main'
+          || format('tfstate-main-noop-{0}', github.run_id)
+        }}
     # Feeds the auto-merge job below: no terraform/main changes in this PR
     # is just as safe as a plan that ran and found nothing to change.
     outputs:
@@ -159,9 +175,17 @@ jobs:
     runs-on: ubuntu-latest
     # Serializes concurrent runs against the terraform/bootstrap GCS state
     # (e.g. several dependabot PRs landing at once) - see the "plan" job's
-    # concurrency comment above for why this is needed.
+    # concurrency comment above for why this is needed, and why the group
+    # is only "tfstate-bootstrap" when this job's own `if` above will
+    # actually let it run terraform.
     concurrency:
-      group: tfstate-bootstrap
+      group: |-
+        ${{
+          ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
+           (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]'))
+          && 'tfstate-bootstrap'
+          || format('tfstate-bootstrap-noop-{0}', github.run_id)
+        }}
     # Feeds the auto-merge job below: no terraform/bootstrap changes in this
     # PR is just as safe as a plan that ran and found nothing to change.
     outputs:
