@@ -1,18 +1,18 @@
 ## 1. PR #1: terraform/main のモジュール化
 
-- [ ] 1.1 `terraform/modules/gcp-network/`を作成し、`network.tf`の内容（`data.google_compute_network.default`、`google_compute_firewall`x2、`google_compute_address`）を`variables.tf`/`main.tf`/`outputs.tf`に分割して移動する
-- [ ] 1.2 `terraform/modules/gcp-disk/`を作成し、`disk.tf`の内容（`google_compute_disk.vaultwarden_data`、`prevent_destroy`込み）を移動する
-- [ ] 1.3 `terraform/modules/gcp-tailscale/`を作成し、`tailscale.tf`の内容（`tailscale_tailnet_key.vm`、`tailscale_acl.this`）を移動する
-- [ ] 1.4 `terraform/modules/gcp-secrets/`を作成し、`secrets.tf`の内容（`random_password`+5組のsecret/version）を移動する。`tailscale_authkey`用の`secret_data`は`gcp-tailscale`モジュールの出力（tailnet keyの値、sensitive）を入力変数として受け取るようにする
-- [ ] 1.5 `terraform/modules/gcp-iam/`を作成し、`iam.tf`の内容（`google_service_account.vm_runtime`、`google_secret_manager_secret_iam_member`x5）を移動する。`account_id = "vaultwarden-vm"`は一字一句変えないこと（bootstrap側が文字列決め打ちで参照しているため）。secret_idは`gcp-secrets`モジュールの出力を入力変数として受け取る
-- [ ] 1.6 `terraform/modules/gcp-compute/`を作成し、`compute.tf`と`templates/startup-script.sh.tftpl`を移動する。`gcp-network`（network self_link, address）、`gcp-disk`（disk self_link）、`gcp-iam`（SA email）、`gcp-secrets`（5x secret_id、および`depends_on`用のsecret_version/iam_memberリソース参照）を入力変数として受け取る
-- [ ] 1.7 各モジュールに`variables.tf`（入力）・`outputs.tf`（他モジュールが参照する値）を用意する
-- [ ] 1.8 `terraform/main/*.tf`をmodule呼び出しのみの薄いファイルに書き換える（`gcp-network`→`gcp-disk`→`gcp-tailscale`→`gcp-secrets`→`gcp-iam`→`gcp-compute`の依存順で呼び出す）
-- [ ] 1.9 `terraform/main/outputs.tf`を`module.gcp_network`・`module.gcp_compute`の出力を参照する形に書き換える
-- [ ] 1.10 `terraform/main/moved.tf`を新規作成し、25個の旧アドレス→`module.gcp_xxx.<旧リソース名>`の`moved`ブロックを列挙する
-- [ ] 1.11 `terraform/main/versions.tf`の`required_version`を`>= 1.7.0`に更新する
-- [ ] 1.12 `.github/workflows/lint.yml`のshellcheckパスを`terraform/modules/gcp-compute/templates/startup-script.sh.tftpl`に更新する
-- [ ] 1.13 ローカルで`terraform fmt -recursive`・`terraform init -backend=false`・`terraform validate`を実行し、エラーがないことを確認する
+- [x] 1.1 `terraform/modules/gcp-network/`を作成し、`network.tf`の内容（`data.google_compute_network.default`、`google_compute_firewall`x2、`google_compute_address`）を`variables.tf`/`main.tf`/`outputs.tf`に分割して移動する
+- [x] 1.2 `terraform/modules/gcp-disk/`を作成し、`disk.tf`の内容（`google_compute_disk.vaultwarden_data`、`prevent_destroy`込み）を移動する
+- [x] 1.3 `terraform/modules/gcp-tailscale/`を作成し、`tailscale.tf`の内容（`tailscale_tailnet_key.vm`、`tailscale_acl.this`）を移動する
+- [x] 1.4 `terraform/modules/gcp-secrets/`を作成し、`secrets.tf`の内容（`random_password`+5組のsecret/version）を移動する。`tailscale_authkey`用の`secret_data`は`gcp-tailscale`モジュールの出力（tailnet keyの値、sensitive）を入力変数として受け取るようにする
+- [x] 1.5 `terraform/modules/gcp-iam/`を作成し、`iam.tf`の内容（`google_service_account.vm_runtime`、`google_secret_manager_secret_iam_member`x5）を移動する。`account_id = "vaultwarden-vm"`は一字一句変えないこと（bootstrap側が文字列決め打ちで参照しているため）。secret_idは`gcp-secrets`モジュールの出力を入力変数として受け取る
+- [x] 1.6 `terraform/modules/gcp-compute/`を作成し、`compute.tf`と`templates/startup-script.sh.tftpl`を移動する。`gcp-network`（network self_link, address）、`gcp-disk`（disk self_link）、`gcp-iam`（SA email）、`gcp-secrets`（5x secret_id、および`depends_on`用のsecret_version/iam_memberリソース参照）を入力変数として受け取る
+- [x] 1.7 各モジュールに`variables.tf`（入力）・`outputs.tf`（他モジュールが参照する値）を用意する
+- [x] 1.8 `terraform/main/*.tf`をmodule呼び出しのみの薄いファイルに書き換える（`gcp-network`→`gcp-disk`→`gcp-tailscale`→`gcp-secrets`→`gcp-iam`→`gcp-compute`の依存順で呼び出す）
+- [x] 1.9 `terraform/main/outputs.tf`を`module.gcp_network`・`module.gcp_compute`の出力を参照する形に書き換える
+- [x] 1.10 `terraform/main/moved.tf`を新規作成し、25個の旧アドレス→`module.gcp_xxx.<旧リソース名>`の`moved`ブロックを列挙する
+- [x] 1.11 `terraform/main/versions.tf`の`required_version`を`>= 1.7.0`に更新する
+- [x] 1.12 `.github/workflows/lint.yml`のshellcheckパスを`terraform/modules/gcp-compute/templates/startup-script.sh.tftpl`に更新する
+- [x] 1.13 ローカルで`terraform fmt -recursive`・`terraform init -backend=false`・`terraform validate`を実行し、エラーがないことを確認する（`terraform fmt`成功、`terraform validate`成功。`terraform plan`はローカルの`.terraform/`に残っていた実GCSバックエンド設定を再利用してしまい本番stateを参照する形になったため、ダミー値でのローカルplanは中止し、実stateに対する差分確認はCIのPR planに委ねる）
 - [ ] 1.14 PR #1を作成し、CIのplanコメントが「No changes」（`0 added, 0 changed, 0 destroyed`）であることを確認する
 - [ ] 1.15 PR #1をマージし、mainブランチへのマージによる自動applyが成功することを確認する
 - [ ] 1.16 `gcloud compute instances describe vaultwarden`・`gcloud compute disks describe vaultwarden-data`の`creationTimestamp`が移行前後で変わっていないことを確認する
