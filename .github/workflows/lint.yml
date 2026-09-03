@@ -49,7 +49,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: terraform-linters/setup-tflint@v6
-      - run: tflint
+      # --call-module-type=all: terraform/main and terraform/bootstrap are
+      # now thin root modules that just call terraform/modules/gcp-*: without
+      # this, tflint only lints the root's own module blocks and never
+      # descends into the called modules, so real issues in module code
+      # would pass silently.
+      - run: tflint --call-module-type=all
 
   # shellcheck ships preinstalled on GitHub-hosted ubuntu-latest runners, so
   # no extra action/install step is needed.
