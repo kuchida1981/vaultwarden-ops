@@ -12,6 +12,8 @@ A complete infrastructure setup for self-hosting Vaultwarden (a password manager
 - Uptime monitoring / alerting: an n8n workflow running on a separate host (not managed by this repository, built manually) periodically polls `https://vaultwarden.u-rei.com/alive` and notifies a dedicated Vaultwarden Discord channel on failure
 - Outbound email uses Brevo's SMTP relay (invitation emails, password hints, new device notifications, etc.). Vault recovery when the master password is completely forgotten (Organization Account Recovery / Emergency Access) is out of scope
 
+> Forking this repo to self-host elsewhere? See [`docs/CUSTOMIZATION.md`](docs/CUSTOMIZATION.md) for what to change before you start.
+
 ## Architecture
 
 ```mermaid
