@@ -5,9 +5,9 @@
 ## Goals / Non-Goals
 
 **Goals:**
-- `terraform/main`を6モジュール（`gcp-network`, `gcp-disk`, `gcp-secrets`, `gcp-iam`, `gcp-tailscale`, `gcp-compute`）、`terraform/bootstrap`を4モジュール（`gcp-project-apis`, `gcp-state-bucket`, `gcp-wif`, `gcp-ci-service-account`）に分割する
+- `terraform/main`を6モジュール（`gcp-network`, `gcp-disk`, `gcp-secrets`, `gcp-iam`, `tailscale`, `gcp-compute`）、`terraform/bootstrap`を4モジュール（`gcp-project-apis`, `gcp-state-bucket`, `gcp-wif`, `gcp-ci-service-account`）に分割する
 - `moved`ブロックによる無停止・ゼロdiffのstate移行（`terraform plan`が`No changes`になることを機械的な正しさの証拠とする）
-- モジュール境界を「将来`terraform/modules/oci-*`を並べて追加する」前提の`gcp-`プレフィックスで設計する
+- モジュール境界を「将来`terraform/modules/oci-*`を並べて追加する」前提の`gcp-`プレフィックスで設計する。ただし`tailscale`モジュールのみ例外（下記Decisions参照）
 
 **Non-Goals:**
 - GCPとOCIを同一moduleでprovider切替する設計は狙わない（リソース形状が大きく異なるため）
@@ -17,11 +17,13 @@
 ## Decisions
 
 ### モジュール境界: ファイル単位に対応させ、diskはcomputeに統合しない
-`network.tf`→`gcp-network`、`disk.tf`→`gcp-disk`、`secrets.tf`→`gcp-secrets`、`iam.tf`→`gcp-iam`、`tailscale.tf`→`gcp-tailscale`、`compute.tf`+`templates/`→`gcp-compute`の1:1対応とする。diskを独立モジュールにするのは、`disk.tf`の既存コメントにある「VMのライフサイクルと意図的に独立させている」という設計意図をモジュール境界でも表現するため。computeとのやり取りは`disk.self_link`の1入力のみで完結する。
+`network.tf`→`gcp-network`、`disk.tf`→`gcp-disk`、`secrets.tf`→`gcp-secrets`、`iam.tf`→`gcp-iam`、`tailscale.tf`→`tailscale`、`compute.tf`+`templates/`→`gcp-compute`の1:1対応とする。diskを独立モジュールにするのは、`disk.tf`の既存コメントにある「VMのライフサイクルと意図的に独立させている」という設計意図をモジュール境界でも表現するため。computeとのやり取りは`disk.self_link`の1入力のみで完結する。
+
+`tailscale`モジュールだけ`gcp-`プレフィックスを付けない: TailscaleはGCPのサービスではなく、`tailscale_tailnet_key`・`tailscale_acl`はGCPプロジェクトからもVMからも独立した別providerのリソースなので、プレフィックスを付けると誤解を招く。他の5モジュールと違ってクラウド非依存のため、将来OCI移行時も`oci-tailscale`を新設せず、この`tailscale`モジュールをそのまま再利用できる可能性が高い。
 
 ### モジュール間依存グラフ
 ```
-gcp-network      gcp-disk        gcp-tailscale
+gcp-network      gcp-disk         tailscale
 (standalone)    (standalone)    (standalone)
                                        │ tailnet_key.key (sensitive output)
                                        ▼
@@ -36,7 +38,7 @@ gcp-network      gcp-disk        gcp-tailscale
    (network self_link/address, disk self_link, SA.email,
     5x secret_id for templatefile, depends_on: secret_version x5 + iam_member x5)
 ```
-`gcp-secrets`の`tailscale_authkey`シークレット値は現状`secrets.tf`内で`tailscale_tailnet_key.vm.key`（`tailscale.tf`）を直接参照している。分割後は`gcp-secrets`が`gcp-tailscale`の出力（sensitive）を入力に取る、という依存の向きを明示する。`gcp-compute`は他5モジュール全ての出力を集約するハブになるため、配線ミスが最も起きやすい箇所として実装時に注意する。
+`gcp-secrets`の`tailscale_authkey`シークレット値は現状`secrets.tf`内で`tailscale_tailnet_key.vm.key`（`tailscale.tf`）を直接参照している。分割後は`gcp-secrets`が`tailscale`モジュールの出力(sensitive)を入力に取る、という依存の向きを明示する。`gcp-compute`は他5モジュール全ての出力を集約するハブになるため、配線ミスが最も起きやすい箇所として実装時に注意する。
 
 ### state移行方法: `moved`ブロック（`terraform state mv`は使わない）
 本リポジトリはPRごとの`plan`→mainマージで自動`apply`する完全GitOps運用のため、`moved`ブロックは通常のPR・plan/applyフローにそのまま乗り、追加の手作業やCIステップが不要。`terraform state mv`は実stateへの一回限りのコマンド実行が必要で、長期鍵なしの認証方針（WIF経由の一時credential）と衝突しうる上、git履歴に残らずPRレビューできない。`moved`ブロックはPRのplanコメントで「No changes」を確認できることが、移行が正しいことの機械的な証拠になる。
@@ -54,7 +56,7 @@ PR #1（`terraform/main`のmodule化）をマージ・apply・実リソース確
 ## Migration Plan
 
 1. **PR #1（`terraform/main`）**
-   - `terraform/modules/gcp-{network,disk,secrets,iam,tailscale,compute}/`を作成し、各`.tf`の中身を移動、`templates/`ディレクトリごと`gcp-compute`へ移動
+   - `terraform/modules/gcp-{network,disk,secrets,iam,compute}/`と`terraform/modules/tailscale/`を作成し、各`.tf`の中身を移動、`templates/`ディレクトリごと`gcp-compute`へ移動
    - rootの各`.tf`をmodule呼び出しのみの薄いファイルに書き換え、`outputs.tf`をmodule参照に書き換え
    - `moved.tf`を作成（旧アドレス→新アドレス、25個）
    - `versions.tf`の`required_version`を`>= 1.7.0`に更新
@@ -77,7 +79,7 @@ PR #1（`terraform/main`のmodule化）をマージ・apply・実リソース確
 
 - [`vaultwarden-vm`のaccount_idをモジュール内で誤って変更してしまう] → `gcp-iam`モジュール内の`google_service_account.vm_runtime`の`account_id = "vaultwarden-vm"`は一字一句変えないことをレビュー時の必須チェック項目とする。bootstrap側が`"serviceAccount:vaultwarden-vm@${var.project_id}.iam.gserviceaccount.com"`という文字列決め打ちでこれを参照しており、`terraform_remote_state`を使わない設計（意図的）のため、account_idが変わってもTerraformは検知してくれない
 - [`moved`ブロックの旧→新アドレス対応を書き間違え、意図しないdestroy&createが計画される] → PRのplanコメントで`No changes`（`0 added, 0 changed, 0 destroyed`）を確認できるまでマージしない。`prevent_destroy`のかかった`gcp-disk`は誤destroy計画時にTerraform自体がエラーで止まる安全弁としても機能する
-- [`gcp-secrets`→`gcp-tailscale`の依存配線を見落とし、tailnet keyの値が渡らない] → design内の依存グラフを実装時のチェックリストとして使う。`terraform plan`が`No changes`にならなければ即座に検知できる
+- [`gcp-secrets`→`tailscale`の依存配線を見落とし、tailnet keyの値が渡らない] → design内の依存グラフを実装時のチェックリストとして使う。`terraform plan`が`No changes`にならなければ即座に検知できる
 - [CI ワークフローのパス変更漏れ（`terraform/modules`未追加）で、モジュールのみの変更がCIに検知されず放置される] → PR #1・PR #2それぞれで対象ファイルへの変更を明示的にタスク化する
 - [PR #2でbootstrap側のCI権限を壊し、main側のCIも巻き添えで止まる] → PR #1の本番検証完了を待ってからPR #2に着手する順序を守る（Migration Plan参照）
 

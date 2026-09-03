@@ -1,3 +1,3 @@
-module "gcp_tailscale" {
-  source = "../modules/gcp-tailscale"
+module "tailscale" {
+  source = "../modules/tailscale"
 }

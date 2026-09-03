@@ -4,7 +4,7 @@
 
 ## What Changes
 
-- `terraform/main/` の6ファイル（`network.tf`, `disk.tf`, `secrets.tf`, `iam.tf`, `tailscale.tf`, `compute.tf` + `templates/`）を `terraform/modules/gcp-{network,disk,secrets,iam,tailscale,compute}/` の6モジュールへ分割し、`terraform/main/*.tf` を各moduleを呼び出す薄いroot moduleに書き換える
+- `terraform/main/` の6ファイル（`network.tf`, `disk.tf`, `secrets.tf`, `iam.tf`, `tailscale.tf`, `compute.tf` + `templates/`）を `terraform/modules/gcp-{network,disk,secrets,iam,compute}/` と `terraform/modules/tailscale/` の6モジュールへ分割し、`terraform/main/*.tf` を各moduleを呼び出す薄いroot moduleに書き換える。`tailscale`モジュールのみ`gcp-`プレフィックスを付けない — TailscaleはGCPのサービスではなく、tailnet key/ACLはクラウド非依存のリソースのため
 - `terraform/bootstrap/` を `terraform/modules/gcp-{project-apis,state-bucket,wif,ci-service-account}/` の4モジュールへ分割する（`vaultwarden_vm_monitoring_writer`/`vaultwarden_vm_logging_writer`の2リソースはモジュール化せず`terraform/bootstrap/main.tf`に直置きのまま残す）
 - 両ディレクトリに `moved.tf` を新規作成し、`moved`ブロックで旧アドレス→新アドレス（`module.gcp_xxx.<既存ローカル名>`）を対応させる。モジュール内のリソースローカル名は変更しない
 - `terraform/main/versions.tf` の `required_version` を `>= 1.7.0` に引き上げる（`data.google_compute_network.default` の`moved`対応がTerraform 1.7以降の機能のため）

@@ -33,15 +33,17 @@ moved {
   to   = module.gcp_disk.google_compute_disk.vaultwarden_data
 }
 
-# tailscale.tf -> module.gcp_tailscale
+# tailscale.tf -> module.tailscale (no gcp- prefix: Tailscale isn't a GCP
+# service, and this module is cloud-agnostic - it may be reusable as-is
+# once an OCI root module exists, unlike the other gcp-* modules)
 moved {
   from = tailscale_tailnet_key.vm
-  to   = module.gcp_tailscale.tailscale_tailnet_key.vm
+  to   = module.tailscale.tailscale_tailnet_key.vm
 }
 
 moved {
   from = tailscale_acl.this
-  to   = module.gcp_tailscale.tailscale_acl.this
+  to   = module.tailscale.tailscale_acl.this
 }
 
 # secrets.tf -> module.gcp_secrets
