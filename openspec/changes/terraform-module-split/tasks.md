@@ -35,6 +35,6 @@
 - [x] 2.11 `.github/workflows/terraform-apply.yml`のパストリガー（`paths:`）に`terraform/modules`を追加する
 - [x] 2.12 `.github/workflows/lint.yml`のtflint呼び出しに`--call-module-type=all`を追加する
 - [x] 2.13 ローカルで`terraform fmt -recursive`・`terraform init -backend=false`・`terraform validate`を実行し、エラーがないことを確認する（bootstrap側で成功。mainは前セッションのローカルキャッシュ不整合のみで今回の変更とは無関係）
-- [ ] 2.14 PR #2を作成し、CIのplanコメント（bootstrap）が「No changes」であることを確認する
-- [ ] 2.15 PR #2をマージする（bootstrapは自動applyされない）
-- [ ] 2.16 README記載の手順に従い、`terraform plan`で再度No changesを確認してから手動`apply`を実行する
+- [x] 2.14 PR #2（#112）を作成し、CIのplanコメント（bootstrap）が「No changes」であることを確認する
+- [x] 2.15 PR #2をマージする（bootstrapは自動applyされない）
+- [x] 2.16 README記載の手順に従い、`terraform plan`で再度No changesを確認してから手動`apply`を実行する（`Apply complete! Resources: 0 added, 0 changed, 0 destroyed.`、apply後の再plan結果は`No changes. Your infrastructure matches the configuration.`で確認）
