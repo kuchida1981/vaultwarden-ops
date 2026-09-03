@@ -13,12 +13,12 @@
 - [x] 1.11 `terraform/main/versions.tf`の`required_version`を`>= 1.7.0`に更新する
 - [x] 1.12 `.github/workflows/lint.yml`のshellcheckパスを`terraform/modules/gcp-compute/templates/startup-script.sh.tftpl`に更新する
 - [x] 1.13 ローカルで`terraform fmt -recursive`・`terraform init -backend=false`・`terraform validate`を実行し、エラーがないことを確認する（`terraform fmt`成功、`terraform validate`成功。`terraform plan`はローカルの`.terraform/`に残っていた実GCSバックエンド設定を再利用してしまい本番stateを参照する形になったため、ダミー値でのローカルplanは中止し、実stateに対する差分確認はCIのPR planに委ねる）
-- [ ] 1.14 PR #1を作成し、CIのplanコメントが「No changes」（`0 added, 0 changed, 0 destroyed`）であることを確認する
-- [ ] 1.15 PR #1をマージし、mainブランチへのマージによる自動applyが成功することを確認する
-- [ ] 1.16 `gcloud compute instances describe vaultwarden`・`gcloud compute disks describe vaultwarden-data`の`creationTimestamp`が移行前後で変わっていないことを確認する
-- [ ] 1.17 `gcloud secrets versions list`で各secretのバージョン数が増えていないこと（再生成されていないこと）を確認する
-- [ ] 1.18 `https://vaultwarden.u-rei.com`への実ログインを確認する
-- [ ] 1.19 Tailscale管理画面でACL（tagOwners、sshルール）が変わっていないことを目視確認する
+- [x] 1.14 PR #1（#110）を作成し、CIのplanコメントが「No changes」であることを確認する（tailscaleモジュールのgcp-プレフィックス除去のリネーム後も再確認済み）
+- [x] 1.15 PR #1をマージし、mainブランチへのマージによる自動apply（productionのGitHub Environment承認ゲートを人手承認後）が成功することを確認する（`Apply complete! Resources: 0 added, 0 changed, 0 destroyed.`）
+- [x] 1.16 `gcloud compute instances describe vaultwarden`・`gcloud compute disks describe vaultwarden-data`の`creationTimestamp`が移行前後で変わっていないことを確認する（VM: 2026-07-07T06:45:25.680-07:00、disk: 2026-07-07T06:35:43.690-07:00、いずれも変化なし）
+- [x] 1.17 `gcloud secrets versions list`で各secretのバージョン数が増えていないこと（再生成されていないこと）を確認する（5secretすべて1 versionのまま）
+- [x] 1.18 `https://vaultwarden.u-rei.com`への実ログインを確認する（HTTP 200応答確認済み、ユーザーによる実ログインも確認済み）
+- [x] 1.19 Tailscale管理画面でACL（tagOwners、sshルール）が変わっていないことを目視確認する（ユーザー確認済み）
 
 ## 2. PR #2: terraform/bootstrap のモジュール化（PR #1完了後に着手）
 
