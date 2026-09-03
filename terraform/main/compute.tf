@@ -1,88 +1,40 @@
-resource "google_compute_instance" "vaultwarden" {
-  name         = "vaultwarden"
-  project      = var.project_id
-  zone         = var.zone
-  machine_type = "e2-micro"
-  tags         = ["vaultwarden-server"]
+module "gcp_compute" {
+  source = "../modules/gcp-compute"
 
-  # Lets Billing Reports be grouped by label to see vaultwarden's compute
-  # cost separately from n8n's, since both VMs live in the same project.
-  labels = {
-    app = "vaultwarden"
-  }
+  project_id  = var.project_id
+  zone        = var.zone
+  domain      = var.domain
+  github_repo = var.github_repo
 
-  boot_disk {
-    initialize_params {
-      image = "debian-cloud/debian-13"
-      size  = 20
-      type  = "pd-balanced"
-    }
-  }
+  network_self_link = module.gcp_network.network_self_link
+  static_ip         = module.gcp_network.address
+  disk_self_link    = module.gcp_disk.self_link
+  vm_runtime_email  = module.gcp_iam.vm_runtime_email
 
-  attached_disk {
-    source      = google_compute_disk.vaultwarden_data.self_link
-    device_name = "vaultwarden-data"
-  }
+  admin_token_secret_id         = module.gcp_secrets.admin_token_secret_id
+  tailscale_authkey_secret_id   = module.gcp_secrets.tailscale_authkey_secret_id
+  smtp_username_secret_id       = module.gcp_secrets.smtp_username_secret_id
+  smtp_password_secret_id       = module.gcp_secrets.smtp_password_secret_id
+  nas_backup_password_secret_id = module.gcp_secrets.nas_backup_password_secret_id
 
-  network_interface {
-    network = data.google_compute_network.default.self_link
+  smtp_host      = var.smtp_host
+  smtp_port      = var.smtp_port
+  smtp_security  = var.smtp_security
+  smtp_from      = var.smtp_from
+  smtp_from_name = var.smtp_from_name
 
-    access_config {
-      nat_ip = google_compute_address.vaultwarden.address
-    }
-  }
+  nas_backup_host     = var.nas_backup_host
+  nas_backup_module   = var.nas_backup_module
+  nas_backup_username = var.nas_backup_username
 
-  service_account {
-    email  = google_service_account.vm_runtime.email
-    scopes = ["cloud-platform"]
-  }
-
-  # Free hardening with no cost or capability trade-off for this workload.
-  shielded_instance_config {
-    enable_secure_boot          = true
-    enable_vtpm                 = true
-    enable_integrity_monitoring = true
-  }
-
-  metadata = {
-    # Lets vaultwarden-deploy.yml reach this VM via `gcloud compute ssh
-    # --tunnel-through-iap` under the CI service account's own IAM identity
-    # (roles/compute.osAdminLogin, granted in terraform/bootstrap), without a
-    # persistent SSH key to manage. Does not affect `tailscale ssh`, which
-    # tunnels through the Tailscale WireGuard interface and never consults
-    # OS Login.
-    enable-oslogin = "TRUE"
-
-    startup-script = templatefile("${path.module}/templates/startup-script.sh.tftpl", {
-      project_id                    = var.project_id
-      domain                        = var.domain
-      github_repo                   = var.github_repo
-      admin_secret_id               = google_secret_manager_secret.admin_token.secret_id
-      ts_secret_id                  = google_secret_manager_secret.tailscale_authkey.secret_id
-      smtp_host                     = var.smtp_host
-      smtp_port                     = var.smtp_port
-      smtp_security                 = var.smtp_security
-      smtp_from                     = var.smtp_from
-      smtp_from_name                = var.smtp_from_name
-      smtp_username_secret_id       = google_secret_manager_secret.smtp_username.secret_id
-      smtp_password_secret_id       = google_secret_manager_secret.smtp_password.secret_id
-      nas_backup_host               = var.nas_backup_host
-      nas_backup_module             = var.nas_backup_module
-      nas_backup_username           = var.nas_backup_username
-      nas_backup_password_secret_id = google_secret_manager_secret.nas_backup_password.secret_id
-    })
-  }
-
-  depends_on = [
-    google_secret_manager_secret_version.admin_token,
-    google_secret_manager_secret_version.tailscale_authkey,
-    google_secret_manager_secret_version.smtp_username,
-    google_secret_manager_secret_version.smtp_password,
-    google_secret_manager_secret_version.nas_backup_password,
-    google_secret_manager_secret_iam_member.admin_token_access,
-    google_secret_manager_secret_iam_member.tailscale_authkey_access,
-    google_secret_manager_secret_iam_member.smtp_username_access,
-    google_secret_manager_secret_iam_member.smtp_password_access,
-    google_secret_manager_secret_iam_member.nas_backup_password_access,
-  ]
+  # compute.tf's resource only *implicitly* depends on module.gcp_secrets/
+  # module.gcp_iam through their output values (secret_id, SA email) - which
+  # only orders it after the specific resources that produce those outputs
+  # (the secrets themselves, the SA), not after the secret *versions* or the
+  # secretAccessor IAM grants. The VM's startup-script needs both to exist
+  # before it boots (it fetches secret values under that SA's identity), so
+  # this explicit module-level depends_on - matching the original resource-
+  # level depends_on before the module split - waits for every resource in
+  # both modules to finish first.
+  depends_on = [module.gcp_secrets, module.gcp_iam]
 }

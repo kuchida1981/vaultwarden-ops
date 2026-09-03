@@ -68,7 +68,7 @@ jobs:
         # .shellcheckrc, since they're specific to this file being a
         # Terraform template rather than plain bash.
         run: |
-          shellcheck --exclude=SC2154,SC1091 terraform/main/templates/startup-script.sh.tftpl
+          shellcheck --exclude=SC2154,SC1091 terraform/modules/gcp-compute/templates/startup-script.sh.tftpl
 
   # Pinned to the same caddy:2.11.4 tag docker-compose.yml uses (not
   # `latest`), so this validates against the exact version actually
