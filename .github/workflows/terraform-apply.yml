@@ -3,9 +3,20 @@ name: Terraform Apply
 on:
   push:
     branches: [main]
+    # Listed individually rather than "terraform/modules/**": that pattern
+    # also matches the bootstrap-only modules (gcp-project-apis,
+    # gcp-state-bucket, gcp-wif, gcp-ci-service-account), which terraform/main
+    # never calls - a bootstrap-only module change would otherwise trigger a
+    # needless apply run here, which still pauses on the production
+    # environment's manual-approval gate before discovering it's a no-op.
     paths:
       - "terraform/main/**"
-      - "terraform/modules/**"
+      - "terraform/modules/gcp-network/**"
+      - "terraform/modules/gcp-disk/**"
+      - "terraform/modules/gcp-secrets/**"
+      - "terraform/modules/gcp-iam/**"
+      - "terraform/modules/gcp-compute/**"
+      - "terraform/modules/tailscale/**"
       - ".github/workflows/terraform-apply.yml"
 
 permissions:
