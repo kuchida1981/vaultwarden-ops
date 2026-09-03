@@ -12,6 +12,8 @@
 - 稼働監視・アラート: 別ホストで運用しているn8nのワークフロー(本リポジトリの管理外、手動構築)が`https://vaultwarden.u-rei.com/alive`を定期的にポーリングし、失敗時にVaultwarden専用のDiscordチャンネルへ通知する
 - メール送信はBrevoのSMTPリレーを使用(招待メール・パスワードヒント・新規デバイス通知等)。マスターパスワードを完全に忘れた場合の保管庫復旧(Organization Account Recovery / Emergency Access)は別スコープ
 
+> 本リポジトリをフォークして別環境でセルフホストする場合は、着手前に [`docs/CUSTOMIZATION.md`](docs/CUSTOMIZATION.md)(英語)で変更すべき箇所を確認してください。
+
 ## アーキテクチャ
 
 ```mermaid
