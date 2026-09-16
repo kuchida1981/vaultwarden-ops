@@ -11,6 +11,7 @@ on:
     # environment's manual-approval gate before discovering it's a no-op.
     paths:
       - "terraform/main/**"
+      - "terraform/main/.terraform.lock.hcl"
       - "terraform/modules/gcp-network/**"
       - "terraform/modules/gcp-disk/**"
       - "terraform/modules/gcp-secrets/**"
