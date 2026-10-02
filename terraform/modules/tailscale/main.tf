@@ -38,29 +38,48 @@ resource "tailscale_tailnet_key" "vm" {
 # tailnet-connected service now means a PR to *this* file, not a
 # repo-to-repo content sync.
 #
-# The policy below intentionally mirrors Tailscale's zero-config default
-# (accept all traffic between all devices) so existing devices, including
-# the NAS, keep working exactly as before. On top of that default: (1) tag
-# owners for tag:vaultwarden-server and tag:n8n-server, and (2) `ssh` blocks
-# that restrict `tailscale ssh` into either tag to the tailnet admin only.
+# The policy below mirrors the live tailnet policy, which was edited by hand
+# in the Tailscale admin console to accommodate projects outside these two
+# repos (tag:claude-wrapper-server, tag:ci-blog-daily-post). Those tags and
+# rules are declared here only so that applying this resource does not wipe
+# them; they are NOT otherwise managed by this repo. Do not edit the ACL in
+# the console: the next apply would revert it. Change this file instead.
+#
+# Notable points: (1) the first accept rule is scoped to tailnet members and
+# the server tags rather than `*`, so tag:ci-blog-daily-post is deliberately
+# NOT a source there and can only reach tag:claude-wrapper-server:18789 via
+# the second rule; (2) `ssh` blocks restrict `tailscale ssh` into the
+# vaultwarden/n8n tags to the tailnet admin only; (3) `tests` are validated
+# by Tailscale on every save, guarding the ci-blog-daily-post isolation.
 resource "tailscale_acl" "this" {
   # The provider refuses to blindly clobber a hand-edited, non-default ACL
   # (safety guard: "You are trying to overwrite a non-default policy").
-  # That's expected here: this tailnet's policy already has this resource's
-  # own prior content applied, so overwriting it is intentional, not
-  # accidental.
+  # That's expected here: the live policy has been reconciled into the
+  # content below, so overwriting it is intentional, not accidental.
   overwrite_existing_content = true
 
   acl = jsonencode({
     tagOwners = {
-      "tag:vaultwarden-server" = ["autogroup:admin"]
-      "tag:n8n-server"         = ["autogroup:admin"]
+      "tag:vaultwarden-server"    = ["autogroup:admin"]
+      "tag:n8n-server"            = ["autogroup:admin"]
+      "tag:claude-wrapper-server" = ["autogroup:admin"]
+      "tag:ci-blog-daily-post"    = ["autogroup:admin"]
     }
     acls = [
       {
         action = "accept"
-        src    = ["*"]
-        dst    = ["*:*"]
+        src = [
+          "autogroup:member",
+          "tag:n8n-server",
+          "tag:vaultwarden-server",
+          "tag:claude-wrapper-server",
+        ]
+        dst = ["*:*"]
+      },
+      {
+        action = "accept"
+        src    = ["tag:ci-blog-daily-post"]
+        dst    = ["tag:claude-wrapper-server:18789"]
       }
     ]
     ssh = [
@@ -75,6 +94,17 @@ resource "tailscale_acl" "this" {
         src    = ["autogroup:admin"]
         dst    = ["tag:n8n-server"]
         users  = ["autogroup:nonroot", "root"]
+      }
+    ]
+    tests = [
+      {
+        src    = "tag:ci-blog-daily-post"
+        accept = ["tag:claude-wrapper-server:18789"]
+        deny = [
+          "tag:claude-wrapper-server:22",
+          "tag:vaultwarden-server:80",
+          "100.65.90.127:5000",
+        ]
       }
     ]
   })
