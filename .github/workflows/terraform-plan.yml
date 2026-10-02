@@ -83,8 +83,14 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
+      # The wrapper swallows `-detailed-exitcode`'s exit code 2 (it exits 0
+      # and only exposes the code via a step output), so the plan step below
+      # would always see "no changes". Disable it so terraform's real exit
+      # code reaches the shell.
       - if: steps.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
         if: steps.changes.outputs.relevant == 'true'
@@ -220,8 +226,14 @@ jobs:
           workload_identity_provider: ${{ secrets.GCP_WORKLOAD_IDENTITY_PROVIDER }}
           service_account: ${{ secrets.GCP_SERVICE_ACCOUNT_EMAIL }}
 
+      # The wrapper swallows `-detailed-exitcode`'s exit code 2 (it exits 0
+      # and only exposes the code via a step output), so the plan step below
+      # would always see "no changes". Disable it so terraform's real exit
+      # code reaches the shell.
       - if: steps.changes.outputs.relevant == 'true'
         uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_wrapper: false
 
       - name: Terraform Init
         if: steps.changes.outputs.relevant == 'true'
