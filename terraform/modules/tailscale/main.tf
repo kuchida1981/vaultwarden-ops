@@ -29,14 +29,3 @@ resource "tailscale_tailnet_key" "vm" {
 # must already exist in that policy's tagOwners before the key can be issued,
 # so a new tag means a PR to u-rei-infra first.
 #
-# `destroy = false` is essential: it makes Terraform forget the resource
-# without deleting it. Without it, removing the resource would delete the live
-# policy and reset the tailnet to the default ACL, cutting every service off.
-# Safe to delete this block once it has been applied.
-removed {
-  from = tailscale_acl.this
-
-  lifecycle {
-    destroy = false
-  }
-}

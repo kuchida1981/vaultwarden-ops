@@ -87,7 +87,7 @@ terraform output
 
 ### 2. Issue a Tailscale OAuth client (manual)
 
-For `terraform/main`'s `tailscale` provider to manage the ACL and auth keys as code, an OAuth client with API access to the tailnet is required.
+For `terraform/main`'s `tailscale` provider to issue the VM's auth key as code, an OAuth client with API access to the tailnet is required. The tailnet ACL itself is **not** managed by this repository (see "Tailnet ACL" below), so this client needs only the Auth Keys scope.
 
 1. **Define the tag first**: open https://login.tailscale.com/admin/acl/file and add the following to `tagOwners`, then save (the `Auth Keys` scope requires tag restriction, and you can't select a tag that isn't yet defined in the ACL)
 
@@ -97,11 +97,11 @@ For `terraform/main`'s `tailscale` provider to manage the ACL and auth keys as c
    },
    ```
 
-   (This entry is identical to what the `tailscale_acl` resource in `terraform/main/tailscale.tf` will apply later, so it won't conflict with the subsequent Terraform apply.)
+   (In the maintainer's setup this entry is already owned by `kuchida1981/u-rei-infra`'s `terraform/tailscale`. If you run your own tailnet, add it by hand here or in whichever repository you let own your ACL.)
 
 2. Open https://login.tailscale.com/admin/settings/oauth
 3. Run "Generate OAuth client"
-4. Grant the **Policy File** (write) and **Auth Keys** (write) scopes (the API scope names are `policy_file` and `auth_keys`; the `tailscale_acl` resource uses Policy File, and the `tailscale_tailnet_key` resource uses Auth Keys). For the Auth Keys tag, select the `tag:vaultwarden-server` tag defined in step 1
+4. Grant **only the Auth Keys (write) scope** (API scope name `auth_keys`, used by the `tailscale_tailnet_key` resource). Do **not** grant Policy File: the ACL is owned elsewhere, and keeping the policy-write credential out of this repository is deliberate. For the Auth Keys tag, select the `tag:vaultwarden-server` tag defined in step 1
 5. Note down the issued **Client ID** and **Client Secret** (the secret is shown only once)
 6. Enable **HTTPS Certificates** at https://login.tailscale.com/admin/dns (tailnet-wide setting, not something the Terraform provider can manage). This lets the VM's `tailscale serve` (used to publish the `/admin` panel to the tailnet only - see step 9) obtain and renew a TLS certificate automatically
 
@@ -150,9 +150,9 @@ The `terraform-apply.yml` workflow references `environment: production`, but the
 
 ### 7. Apply terraform/main
 
-After merging to `main`, the GitHub Actions `terraform apply` workflow will pause waiting for approval; approve it on GitHub. The first apply creates the VM, static IP, firewall rules, data disk, Secret Manager, and Tailscale ACL/auth keys all at once.
+After merging to `main`, the GitHub Actions `terraform apply` workflow will pause waiting for approval; approve it on GitHub. The first apply creates the VM, static IP, firewall rules, data disk, Secret Manager, and Tailscale auth key all at once.
 
-**Note**: the `tailscale_acl` resource manages the entire tailnet ACL policy as a single resource. Before the first apply, check the current ACL settings at https://login.tailscale.com/admin/acl/file and merge any existing custom rules into `terraform/main/tailscale.tf` before running it.
+**Tailnet ACL**: this repository does not manage the tailnet ACL. `tailscale_acl` replaces the whole policy file as one resource, so it must have a single owner; here that is `kuchida1981/u-rei-infra` (`terraform/tailscale`). Before the first apply, make sure `tag:vaultwarden-server` exists in your tailnet's `tagOwners` (step 2.1), otherwise issuing the auth key fails. To add a new tailnet-connected service, change the ACL owner repository first, then the service repository.
 
 ### 8. Create the DNS record manually
 
@@ -213,7 +213,7 @@ After deploying, confirm you can log in at `https://vaultwarden.u-rei.com`, that
 
 ```
 terraform/bootstrap/  … manual, applied once. GCS state bucket, WIF Pool, CI service account
-terraform/main/       … applied continuously by GitHub Actions. VM/firewall/disk/Secret Manager/Tailscale ACL
+terraform/main/       … applied continuously by GitHub Actions. VM/firewall/disk/Secret Manager/Tailscale auth key (the ACL is owned by u-rei-infra)
 vaultwarden/           … docker-compose.yml, Caddyfile
 .github/workflows/     … terraform plan (PR) / apply (main, with approval gate) / vaultwarden-deploy (changes under vaultwarden/, with approval gate)
 ```

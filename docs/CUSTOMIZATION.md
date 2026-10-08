@@ -44,12 +44,12 @@ These variables ship with a default tied to the maintainer's own setup, but are 
 
 Two spots in the codebase assume the maintainer's personal infrastructure with no Terraform variable to override them. These are accepted as-is for now rather than parameterized in this change.
 
-### `tag:n8n-server` in the Tailscale ACL
+### The Tailscale ACL lives in another repository
 
-`terraform/main/tailscale.tf`'s `tailscale_acl` resource hardcodes a `tag:n8n-server` entry (in both `tagOwners` and an `ssh` block) tied to a sibling `n8n-ops` repository the maintainer runs privately. You won't have that repo.
+This repository no longer manages the tailnet ACL; `tailscale_acl` is owned by `kuchida1981/u-rei-infra` (`terraform/tailscale`), the maintainer's shared-infra repository, because the policy is one whole-file resource that several sibling projects share. You won't have that repository.
 
-- **Impact if left as-is**: applying Terraform just adds an unused tag/ACL entry to your own tailnet. Harmless — nothing in this repository ever provisions a device with that tag.
-- **To remove it**: edit `terraform/main/tailscale.tf` directly, deleting the `tag:n8n-server` line from `tagOwners` and the corresponding entry from the `ssh` block.
+- **What you must do**: make sure your own tailnet's ACL defines `tag:vaultwarden-server` in `tagOwners` (README step 2.1), either by hand in the console or by owning `tailscale_acl` in a repository of your choice. Without it, issuing the VM's auth key fails.
+- **Tags for services you don't run**: any `tag:n8n-server` or similar entries belong to the maintainer's policy, not to this repository; you have nothing to remove here.
 
 ### Synology-specific rsync excludes in the backup script
 

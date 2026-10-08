@@ -87,7 +87,7 @@ terraform output
 
 ### 2. Tailscale OAuthクライアントの発行(手動)
 
-`terraform/main`の`tailscale`プロバイダがACLと認証キーをコード管理するために、tailnetへのAPIアクセス権を持つOAuthクライアントが必要。
+`terraform/main`の`tailscale`プロバイダがVMの認証キーをコードで発行するために、tailnetへのAPIアクセス権を持つOAuthクライアントが必要。tailnetのACL自体はこのリポジトリでは管理しない(下記「tailnetのACL」参照)ため、このクライアントに必要なのはAuth Keysスコープのみ。
 
 1. **先にタグを定義する**: https://login.tailscale.com/admin/acl/file を開き、`tagOwners`に以下を追記して保存する(`Auth Keys`スコープはタグ制限が必須で、そのタグがACLに未定義だと選択できない)
 
@@ -97,11 +97,11 @@ terraform output
    },
    ```
 
-   (このエントリは`terraform/main/tailscale.tf`の`tailscale_acl`リソースが後で適用する内容と同一なので、後続のTerraform applyと矛盾しない)
+   (メンテナの環境では、このエントリは既に`kuchida1981/u-rei-infra`の`terraform/tailscale`が所有している。自分のtailnetで運用する場合は、ここで手動追記するか、ACLを所有させるリポジトリに追加する)
 
 2. https://login.tailscale.com/admin/settings/oauth を開く
 3. "Generate OAuth client" を実行
-4. スコープに **Policy File** (write) と **Auth Keys** (write) を付与(APIスコープ名としては`policy_file`と`auth_keys`。`tailscale_acl`リソースがPolicy File、`tailscale_tailnet_key`リソースがAuth Keysを使う)。Auth Keysのタグには手順1で定義した `tag:vaultwarden-server` を選択する
+4. スコープには **Auth Keys (write) のみ**を付与(APIスコープ名は`auth_keys`で、`tailscale_tailnet_key`リソースが使う)。**Policy Fileは付与しない**(ACLは別リポジトリが所有しており、ポリシー書き込み権限の認証情報をこのリポジトリに置かないのは意図的)。Auth Keysのタグには手順1で定義した `tag:vaultwarden-server` を選択する
 5. 発行された **Client ID** と **Client Secret** を控える(Secretは一度しか表示されない)
 6. https://login.tailscale.com/admin/dns で **HTTPS Certificates** を有効化する(tailnet単位の設定で、Terraformプロバイダでは管理できない)。これによりVM上の`tailscale serve`(手順9で`/admin`パネルをtailnet限定公開するのに使う)がTLS証明書を自動取得・更新できるようになる
 
@@ -150,9 +150,9 @@ VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップ�
 
 ### 7. Terraform mainのapply
 
-`main`ブランチへのマージ後、GitHub Actionsの`terraform apply`ワークフローが承認待ちで停止するので、GitHub上で承認する。初回applyでVM・静的IP・ファイアウォール・データディスク・Secret Manager・Tailscale ACL/認証キーが一括作成される。
+`main`ブランチへのマージ後、GitHub Actionsの`terraform apply`ワークフローが承認待ちで停止するので、GitHub上で承認する。初回applyでVM・静的IP・ファイアウォール・データディスク・Secret Manager・Tailscale認証キーが一括作成される。
 
-**注意**: `tailscale_acl`リソースはtailnetのACLポリシー全体を1つのリソースとして管理する。初回apply前に https://login.tailscale.com/admin/acl/file で現在のACL設定を確認し、既存のカスタムルール(あれば)を`terraform/main/tailscale.tf`にマージしてから実行すること。
+**tailnetのACL**: このリポジトリはtailnetのACLを管理しない。`tailscale_acl`はポリシーファイル全体を1つのリソースとして上書きするため所有者は1つでなければならず、ここでは`kuchida1981/u-rei-infra`(`terraform/tailscale`)が所有する。初回apply前に、tailnetの`tagOwners`に`tag:vaultwarden-server`が存在することを確認すること(手順2.1)。無いと認証キーの発行が失敗する。tailnetに接続する新しいサービスを追加する際は、先にACLの所有リポジトリを変更し、その後にサービス側のリポジトリを変更する。
 
 ### 8. DNSレコードの手動作成
 
@@ -213,7 +213,7 @@ vaultwardenイメージは`vaultwarden/docker-compose.yml`でリテラルタグ�
 
 ```
 terraform/bootstrap/  … 手動・1回だけapply。GCS state bucket, WIF Pool, CI用SA
-terraform/main/       … GitHub Actionsが継続的にapply。VM/FW/Disk/Secret Manager/Tailscale ACL
+terraform/main/       … GitHub Actionsが継続的にapply。VM/FW/Disk/Secret Manager/Tailscale認証キー(ACLはu-rei-infraが所有)
 vaultwarden/           … docker-compose.yml, Caddyfile
 .github/workflows/     … terraform plan(PR) / apply(main, 承認ゲート付き) / vaultwarden-deploy(vaultwarden/配下の変更、承認ゲート付き)
 ```
