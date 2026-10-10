@@ -12,7 +12,7 @@ VMのTailscale tailnetへの自動参加、ACL/認証キーのTerraformによる
 - **THEN** 人手を介さずに`tailscale up`が実行され、当該VMがTailscale管理画面上でtailnetの一員として認識される
 
 ### Requirement: ACL・認証キーのTerraform管理
-システムは、Tailscaleの公式Terraformプロバイダを用いて、tailnetの認証キー発行とACLポリシー(タグ`tag:vaultwarden-server`に対する権限設定を含む)をコードとして管理しなければならない(SHALL)。
+システムは、Tailscaleの公式Terraformプロバイダを用いて、tailnetの認証キー発行をコードとして管理しなければならない(SHALL)。ACLポリシー(`tailscale_acl`)はファイル全体を単一リソースとして上書きするため、このリポジトリでは管理してはならない(SHALL NOT)。ACLは`kuchida1981/u-rei-infra`が唯一のオーナーとして管理し、`tag:vaultwarden-server`がそのACLの`tagOwners`に定義済みであることを認証キー発行の前提としなければならない(SHALL)。このリポジトリのTailscale OAuthクライアントはAuth Keysスコープのみを持ち、Policy Fileスコープを持ってはならない(SHALL NOT)。
 
 #### Scenario: Terraform applyでタグ付き認証キーが発行される
 - **WHEN** `terraform apply`を実行する
