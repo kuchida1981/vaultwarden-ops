@@ -114,7 +114,7 @@ GitHub ActionsによるTerraform CI/CDパイプラインを管理する。Worklo
 
 #### Scenario: 承認済みデプロイを基準に差分が計算される
 - **WHEN** デプロイジョブの承認が完了する
-- **THEN** そのコミットを指す`vaultwarden-last-deploy`タグがforce-pushされ、次回実行時の差分計算の基準点として使われる
+- **THEN** そのrunは成功として完了し、次回実行時の差分計算では、このworkflowの直近の成功runの`head_sha`が基準点として使われる(基準点の保存にタグのpushは使わない。`GITHUB_TOKEN`は`.github/workflows`を変更するコミットをまたぐタグ移動をpushできないため)
 
 ### Requirement: 認証不要な静的解析チェック
 システムは、`terraform plan`とは独立した、GCP認証やリポジトリSecretsを一切必要としない静的解析ワークフローを提供しなければならない(SHALL)。このワークフローは、すべてのプルリクエスト(人間およびDependabotによるものを含む)に対して同一の`pull_request`イベントで実行されなければならない(SHALL)。このワークフローは以下を含まなければならない(SHALL):
