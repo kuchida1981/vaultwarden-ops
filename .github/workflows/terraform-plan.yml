@@ -23,31 +23,12 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
-    # Same group as terraform-apply.yml's "apply" job: both act on the
-    # terraform/main GCS state, and without this, concurrent runs (e.g.
-    # several dependabot PRs landing at once, or a plan racing an apply)
-    # fight over the same state lock and fail with "Error acquiring the
-    # state lock" instead of the real plan/apply result. cancel-in-progress
-    # is left false (the default) so runs queue instead of one canceling
-    # another - "plan" is a required check and must always finish.
-    #
-    # The group is only "tfstate-main" when this job's own `if` above will
-    # actually let it run terraform. Every dependabot PR fires both
-    # `pull_request` and `pull_request_target`, and the one that the `if`
-    # will skip still claims a concurrency slot before that condition is
-    # evaluated - GitHub's queue treats the newer request as higher
-    # priority and cancels the older, currently-running "real" plan instead
-    # of just queuing behind it, even with cancel-in-progress: false. Giving
-    # the always-skipped run its own per-run group keeps it out of
-    # "tfstate-main" entirely, so it can no longer preempt a real plan.
-    concurrency:
-      group: |-
-        ${{
-          ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
-           (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]'))
-          && 'tfstate-main'
-          || format('tfstate-main-noop-{0}', github.run_id)
-        }}
+    # No `concurrency` group on purpose. GitHub keeps at most one running and
+    # one pending run per group and cancels any older pending run when a new
+    # one arrives - even with cancel-in-progress: false - so several
+    # dependabot PRs landing at once had their real plans cancelled, and
+    # "plan" is a required check. Instead, runs are allowed to overlap and
+    # serialize on the Terraform state lock itself via -lock-timeout below.
     # Feeds the auto-merge job below: no terraform/main changes in this PR
     # is just as safe as a plan that ran and found nothing to change.
     outputs:
@@ -121,7 +102,7 @@ jobs:
         # 2, before we get to inspect that exit code ourselves.
         run: |
           set -o pipefail
-          if terraform plan -no-color -detailed-exitcode -out=tfplan 2>&1 | tee plan.txt; then
+          if terraform plan -no-color -detailed-exitcode -lock-timeout=10m -out=tfplan 2>&1 | tee plan.txt; then
             plan_exit=0
           else
             plan_exit=$?
@@ -179,19 +160,8 @@ jobs:
       (github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
       (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]')
     runs-on: ubuntu-latest
-    # Serializes concurrent runs against the terraform/bootstrap GCS state
-    # (e.g. several dependabot PRs landing at once) - see the "plan" job's
-    # concurrency comment above for why this is needed, and why the group
-    # is only "tfstate-bootstrap" when this job's own `if` above will
-    # actually let it run terraform.
-    concurrency:
-      group: |-
-        ${{
-          ((github.event_name == 'pull_request' && github.actor != 'dependabot[bot]') ||
-           (github.event_name == 'pull_request_target' && github.actor == 'dependabot[bot]'))
-          && 'tfstate-bootstrap'
-          || format('tfstate-bootstrap-noop-{0}', github.run_id)
-        }}
+    # No `concurrency` group - see the "plan" job's comment above. Overlapping
+    # runs wait on the terraform/bootstrap state lock via -lock-timeout.
     # Feeds the auto-merge job below: no terraform/bootstrap changes in this
     # PR is just as safe as a plan that ran and found nothing to change.
     outputs:
@@ -249,7 +219,7 @@ jobs:
         # wrapped in `if` and what -detailed-exitcode buys us.
         run: |
           set -o pipefail
-          if terraform plan -no-color -detailed-exitcode -out=tfplan 2>&1 | tee plan.txt; then
+          if terraform plan -no-color -detailed-exitcode -lock-timeout=10m -out=tfplan 2>&1 | tee plan.txt; then
             plan_exit=0
           else
             plan_exit=$?

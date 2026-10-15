@@ -32,9 +32,9 @@ jobs:
     # That's what actually pauses this job for manual approval - it cannot
     # be expressed in workflow YAML alone.
     environment: production
-    # Same group as terraform-plan.yml's "plan" job: both act on the
-    # terraform/main GCS state, so this queues behind (or ahead of) any
-    # in-flight plan instead of racing it for the same state lock.
+    # Serializes applies against each other. Plans (terraform-plan.yml) no
+    # longer share this group; an apply that overlaps a plan waits on the
+    # state lock via -lock-timeout below.
     concurrency:
       group: tfstate-main
     defaults:
@@ -64,7 +64,7 @@ jobs:
           TF_VAR_smtp_username: ${{ secrets.BREVO_SMTP_USERNAME }}
           TF_VAR_smtp_password: ${{ secrets.BREVO_SMTP_PASSWORD }}
           TF_VAR_nas_backup_password: ${{ secrets.NAS_BACKUP_PASSWORD }}
-        run: terraform apply -no-color -auto-approve
+        run: terraform apply -no-color -auto-approve -lock-timeout=10m
 
       - uses: google-github-actions/setup-gcloud@v3
 
