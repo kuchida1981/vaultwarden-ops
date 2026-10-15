@@ -16,20 +16,29 @@ jobs:
   summary:
     name: Image version
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      actions: read
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 
       - name: Show image version diff
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           # Diff against the last *approved* deploy, not just the previous
           # commit: a rejected run doesn't revert its commit off main, so
           # HEAD^ would hide changes (e.g. a rejected caddy bump) that a
           # later approved run's `git pull --ff-only` deploys anyway.
-          if git rev-parse -q --verify refs/tags/vaultwarden-last-deploy >/dev/null; then
-            base=refs/tags/vaultwarden-last-deploy
-          else
+          # "Approved" = the latest run of this workflow that finished
+          # successfully. It is read from run history rather than a pushed
+          # tag: GITHUB_TOKEN cannot move a tag across commits that touch
+          # .github/workflows (it has no `workflows` permission).
+          base=$(gh run list --workflow vaultwarden-deploy.yml --branch main \
+            --status success --limit 1 --json headSha --jq '.[0].headSha // empty')
+          if [ -z "$base" ] || ! git cat-file -e "$base^{commit}" 2>/dev/null; then
             base=HEAD^
           fi
           diff_output=$(git diff "$base" HEAD -- vaultwarden/docker-compose.yml | grep '^[+-].*image:' || true)
@@ -51,7 +60,7 @@ jobs:
     # Environment in repo Settings.
     environment: production
     permissions:
-      contents: write
+      contents: read
       id-token: write
     steps:
       - uses: actions/checkout@v7
@@ -95,8 +104,3 @@ jobs:
           # holds live user sessions/websockets, so it shouldn't be
           # unconditionally bounced on a Caddyfile-only change the way caddy
           # is.
-
-      - name: Mark commit as deployed
-        run: |
-          git tag -f vaultwarden-last-deploy
-          git push -f origin vaultwarden-last-deploy
