@@ -154,16 +154,16 @@ VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップ�
 
 **tailnetのACL**: このリポジトリはtailnetのACLを管理しない。`tailscale_acl`はポリシーファイル全体を1つのリソースとして上書きするため所有者は1つでなければならず、ここでは`kuchida1981/u-rei-infra`(`terraform/tailscale`)が所有する。初回apply前に、tailnetの`tagOwners`に`tag:vaultwarden-server`が存在することを確認すること(手順2.1)。無いと認証キーの発行が失敗する。tailnetに接続する新しいサービスを追加する際は、先にACLの所有リポジトリを変更し、その後にサービス側のリポジトリを変更する。
 
-### 8. DNSレコードの手動作成
+### 8. DNSレコードの作成
 
-`u-rei.com`はレジストラのデフォルトDNSで管理しており、Terraformでは自動化していない。apply完了後、以下の出力値を使って手動でAレコードを作成する:
+メンテナの`u-rei.com`ゾーンは別リポジトリ`kuchida1981/u-rei-infra`(Cloud DNS + Terraform)が管理している。そちらで`terraform/main/variables.tf`の`vaultwarden_ip`を下記の値に更新するPRを立てる。自分のドメインで運用する場合は、DNSを管理している場所でAレコードを作成する。apply完了後、IPは以下で取得できる:
 
 ```bash
 cd terraform/main
 terraform output vm_external_ip
 ```
 
-`u-rei.com`のDNS管理画面で `vaultwarden` サブドメインのAレコードをこのIPに向けて作成する。
+`vaultwarden`サブドメインのAレコードをこのIPに向ける。
 
 ### 9. adminパネルへのアクセス経路(自分の端末のみ)
 

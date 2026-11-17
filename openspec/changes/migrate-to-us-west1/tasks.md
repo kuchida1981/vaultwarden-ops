@@ -10,7 +10,7 @@
 
 ## 2. 移行前の準備(手動)
 
-- [ ] 2.1 DNS の `vaultwarden.u-rei.com` A レコードの TTL を 300 秒に短縮する(元の TTL を記録しておく)
+- [x] 2.1 TTL は短縮しない(DNS は `u-rei-infra` で全レコード共通の `record_ttl`=3600秒。切替の反映は最大1時間程度を許容する)
 - [ ] 2.2 NAS バックアップの直近成功を確認する
 - [ ] 2.3 利用の少ない時間帯に作業枠を確保する
 
@@ -26,7 +26,7 @@
 
 ## 4. 切替と検証
 
-- [ ] 4.1 `terraform output vm_external_ip` の値で DNS A レコードを更新する
+- [ ] 4.1 `terraform output vm_external_ip` の値で、`u-rei-infra`(../u-rei.com-dns)の `terraform/main/variables.tf` の `vaultwarden_ip` を更新する PR を作成し、plan 確認後にマージ、production 環境の承認を経て apply する
 - [ ] 4.2 `https://vaultwarden.u-rei.com` でログインでき、Vault・添付・Send が移行前と同じであることを確認する
 - [ ] 4.3 `tailscale ssh vaultwarden` で接続でき、ホスト名が `vaultwarden`(`vaultwarden-1` でない)であることを確認する。ずれていれば `tailscale set --hostname=vaultwarden`
 - [ ] 4.4 tailnet 経由の `/admin` と、公開ドメインでの `/admin` が 403 であることを確認する
@@ -40,7 +40,6 @@
 - [ ] 5.1 数日間の安定稼働を確認後、旧ディスク `vaultwarden-data`(asia-northeast1-b)を `gcloud compute disks delete` で削除する
 - [ ] 5.2 `source_snapshot` を null に戻す前に、`snapshot` 属性の `ignore_changes` を追加し、`terraform plan` が `No changes` になることを確認する
 - [ ] 5.3 スナップショットを一定期間(例: 2週間)保持した後に削除する
-- [ ] 5.4 DNS の TTL を元の値に戻す
 - [ ] 5.5 旧リージョンに残リソース(VM・ディスク・静的IP)がないことを `gcloud` で確認する
 - [ ] 5.6 `openspec/specs/gcp-infrastructure/spec.md` の Purpose の「東京リージョン」記述を us-west1 に更新する(archive 時の spec sync 後)
 

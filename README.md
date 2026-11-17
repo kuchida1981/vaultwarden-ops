@@ -154,16 +154,16 @@ After merging to `main`, the GitHub Actions `terraform apply` workflow will paus
 
 **Tailnet ACL**: this repository does not manage the tailnet ACL. `tailscale_acl` replaces the whole policy file as one resource, so it must have a single owner; here that is `kuchida1981/u-rei-infra` (`terraform/tailscale`). Before the first apply, make sure `tag:vaultwarden-server` exists in your tailnet's `tagOwners` (step 2.1), otherwise issuing the auth key fails. To add a new tailnet-connected service, change the ACL owner repository first, then the service repository.
 
-### 8. Create the DNS record manually
+### 8. Create the DNS record
 
-`u-rei.com` is managed under the registrar's default DNS and is not automated via Terraform. After the apply completes, use the following output value to manually create an A record:
+The maintainer's `u-rei.com` zone is managed by the separate `kuchida1981/u-rei-infra` repository (Cloud DNS + Terraform): open a PR there that sets `vaultwarden_ip` in `terraform/main/variables.tf` to the value below. If you run your own domain, create the A record wherever you manage DNS. After the apply completes, get the IP from:
 
 ```bash
 cd terraform/main
 terraform output vm_external_ip
 ```
 
-In `u-rei.com`'s DNS management screen, create an A record for the `vaultwarden` subdomain pointing to this IP.
+Point an A record for the `vaultwarden` subdomain at this IP.
 
 ### 9. Access path to the admin panel (your device only)
 

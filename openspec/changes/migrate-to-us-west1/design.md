@@ -5,7 +5,7 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 制約:
 - GCE の VM・ゾーナルディスクはリージョン/ゾーンをまたいで移動できない。静的IPもリージョン固有。変更は destroy & create になる
 - データディスクは `prevent_destroy = true` で、リージョン変更は replace を要求するため Terraform が止まる
-- DNS (`vaultwarden.u-rei.com`) は手動管理
+- DNS (`vaultwarden.u-rei.com`) は別リポジトリ `u-rei-infra` が Cloud DNS + Terraform で管理(このリポジトリからは操作しない)
 - データ(SQLite DB・RSA鍵・添付)は唯一の正で、毎日 NAS にもバックアップされている
 - 無料枠は **請求アカウント単位**(e2-micro 1台/月、pd-standard 30GB、北米発の egress 1GB)
 
@@ -18,7 +18,7 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 
 **Non-Goals:**
 - マルチリージョン/無停止移行(単一VM構成を維持)
-- DNS の Terraform 化
+- DNS 管理方式の変更(既に u-rei-infra が Terraform 管理)
 - n8n-ops 側の変更そのもの(README 記述の更新のみ後続作業として扱う)
 - アプリ層(docker-compose.yml / Caddyfile)の変更
 
@@ -36,8 +36,8 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 無料枠に収めるためデータディスク・ブートディスクとも pd-standard とする。ただし SQLite の fsync で応答性が落ちる可能性があるため、移行後に実測し、許容できなければ pd-balanced に戻す(コスト月数十セント〜数ドル)。
 - 注意: 無料枠の 30GB は請求アカウント合計。n8n 側のディスクと合算して超過する可能性があり、超過分は少額課金される。許容する前提とする(Open Questions 参照)
 
-### D4: 静的IPは新規払い出しとし、DNS を手動切替
-旧IPは移行できない。TTL を事前に短縮(300秒)し、新VM起動後に A レコードを新IPへ更新する。Caddy の証明書(ディスク上に保存)はそのまま持ち越されるが、DNS 切替前は新IPで ACME 更新が通らない点に留意する。
+### D4: 静的IPは新規払い出しとし、DNS は u-rei-infra の PR で切替
+旧IPは移行できない。DNS(`u-rei.com`)は別リポジトリ `u-rei-infra`(../u-rei.com-dns、Cloud DNS + Terraform)が全レコードを一元管理しているため、新VM起動後に新IPで `terraform/main/variables.tf` の `vaultwarden_ip` を更新する PR を作り、マージ・承認・apply で A レコードを切り替える。TTL は全レコード共通の `record_ttl`(3600秒)で、他サービスへの影響を避けるため短縮しない。切替の反映に最大1時間程度かかることを許容する。Caddy の証明書(ディスク上に保存)はそのまま持ち越されるが、DNS 切替前は新IPで ACME 更新が通らない点に留意する。
 - 注: 使用中の標準外部IPv4 は無料枠外で課金される(旧リージョンと同額で変化なし)
 
 ### D5: Tailscale ノードの重複を避ける
@@ -52,7 +52,7 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 ## Risks / Trade-offs
 
 - [移行中の DB 破損・欠落] → 旧VMで `systemctl start backup.service` を実行して NAS に最新バックアップを取り、その後 VM を停止してからスナップショットを取る。スナップショットと NAS の両方が復元元になる
-- [ダウンタイム] → 旧VM停止から DNS 反映までサービス不可。TTL 短縮と、作業を利用の少ない時間帯に行うことで最小化する。ダウンタイム中はクライアントのオフラインキャッシュ(Bitwarden のローカル Vault)で閲覧は可能
+- [ダウンタイム] → 旧VM停止から DNS 反映までサービス不可。作業を利用の少ない時間帯に行うことで最小化する。ダウンタイム中はクライアントのオフラインキャッシュ(Bitwarden のローカル Vault)で閲覧は可能
 - [pd-standard で応答性悪化] → 移行後に実測し、必要なら pd-balanced に戻す
 - [無料枠の合算超過] → 少額課金として許容。GCP Billing でラベル `app=vaultwarden` 別に確認する
 - [apply が旧ディスクで止まる / 誤って旧ディスクを destroy] → 事前に state rm を実施し、`terraform plan` で旧ディスクが destroy 対象に出ないことを確認してから apply する
@@ -62,16 +62,15 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 
 ## Migration Plan
 
-1. 事前: DNS の TTL を 300 秒へ短縮、NAS バックアップの直近成功を確認
+1. 事前: NAS バックアップの直近成功を確認
 2. 旧VMで `systemctl start backup.service` → NAS へ最新バックアップ
 3. 旧VMを停止(`gcloud compute instances stop`)し、データディスクのスナップショットを取得
 4. Tailscale admin で旧ノード `vaultwarden` を削除
 5. `terraform state rm module.gcp_disk.google_compute_disk.vaultwarden_data`
 6. コード変更(region/zone、pd-standard、`source_snapshot`)を反映し `terraform plan` で想定どおり(旧VM・旧IP destroy、新ディスク・新VM・新IP create)であることを確認して apply
-7. `vm_external_ip` の出力値で DNS A レコードを更新
+7. `vm_external_ip` の出力値で `u-rei-infra` の `vaultwarden_ip` を更新する PR を作成・マージし、apply する
 8. 検証: `https://vaultwarden.u-rei.com` ログイン、Vault 内容、添付、`tailscale ssh vaultwarden`、`/admin`(tailnet 経由)、メール送信、`systemctl start backup.service` による NAS 疎通
-9. 数日間観察後、旧ディスクを `gcloud compute disks delete` で削除、スナップショットも期間を置いて削除。TTL を元に戻す
-10. n8n-ops の README を更新
+9. 数日間観察後、旧ディスクを `gcloud compute disks delete` で削除、スナップショットも期間を置いて削除。10. n8n-ops の README を更新
 
 **ロールバック**(手順 8 の検証前): コードを元に戻し、旧ディスクを `terraform import` し直すか、旧ディスクから旧ゾーンに VM を作り直して DNS を旧IPに戻す(旧静的IPは apply で解放されるため、旧IPが確保できない場合は新IPで DNS を更新)。手順 9 で旧ディスクを削除した後は、スナップショットまたは NAS バックアップからの復元になる。
 
