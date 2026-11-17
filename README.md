@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (Tokyo region). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
+A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (us-west1 region, chosen to stay within the GCP always-free tier). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
 
 - Public URL: `https://vaultwarden.u-rei.com` (family members access it normally from here)
 - SSH: routine operator access is only via the Tailscale tailnet (`tailscale ssh`). Vaultwarden version-update deploys are the sole exception — `vaultwarden-deploy.yml` SSHes as the CI service account over a GCP IAP tunnel, gated by manual approval (see "Updating Vaultwarden" below)
@@ -19,7 +19,7 @@ A complete infrastructure setup for self-hosting Vaultwarden (a password manager
 ```mermaid
 flowchart TB
     internet["Internet (anyone)"]
-    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
+    subgraph vm["GCE VM (e2-micro, us-west1, Debian13)"]
         caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
         disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
     end

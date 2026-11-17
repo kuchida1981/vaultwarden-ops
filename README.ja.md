@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(東京リージョン)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
+自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(us-west1リージョン。GCP常時無料枠の対象リージョンのため)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
 
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
 - SSH: 通常の運用者アクセスはTailscale tailnet経由(`tailscale ssh`)のみ。Vaultwardenのバージョン更新デプロイに限り、`vaultwarden-deploy.yml`が承認ゲートを経てGCP IAP tunnel経由でCI用サービスアカウントとしてSSHする(下記「Vaultwardenのバージョン更新」参照)
@@ -19,7 +19,7 @@
 ```mermaid
 flowchart TB
     internet["インターネット (誰でも)"]
-    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
+    subgraph vm["GCE VM (e2-micro, us-west1, Debian13)"]
         caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
         disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
     end

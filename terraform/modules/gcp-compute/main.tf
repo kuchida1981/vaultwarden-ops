@@ -23,7 +23,7 @@ resource "google_compute_instance" "vaultwarden" {
     initialize_params {
       image = "debian-cloud/debian-13"
       size  = 20
-      type  = "pd-balanced"
+      type  = "pd-standard"
     }
   }
 

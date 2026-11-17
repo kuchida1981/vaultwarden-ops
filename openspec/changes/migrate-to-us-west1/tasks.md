@@ -1,12 +1,12 @@
 ## 1. コード変更(PR 作成まで)
 
-- [ ] 1.1 `terraform/main/variables.tf` の `region` / `zone` デフォルトを `us-west1` / `us-west1-b` に変更する
-- [ ] 1.2 `terraform/modules/gcp-disk` に `source_snapshot`(デフォルト null)変数を追加し、データディスクの type を `pd-standard` に変更する。`terraform/main/disk.tf` から変数を受け渡す
-- [ ] 1.3 `terraform/modules/gcp-compute/main.tf` のブートディスク type を `pd-standard` に変更する
-- [ ] 1.4 `.github/workflows/vaultwarden-deploy.yml` の `--zone=asia-northeast1-b` を `us-west1-b` に変更する
-- [ ] 1.5 `README.md` / `README.ja.md` のアーキテクチャ図(`asia-northeast1`)と、リージョン・ディスク種別の記述を更新する
-- [ ] 1.6 `docs/CUSTOMIZATION.md` の `region` / `zone` デフォルト値の記述を更新する
-- [ ] 1.7 `terraform fmt -check` / `terraform validate` / lint ワークフロー相当のチェックが通ることを確認する
+- [x] 1.1 `terraform/main/variables.tf` の `region` / `zone` デフォルトを `us-west1` / `us-west1-b` に変更する
+- [x] 1.2 `terraform/modules/gcp-disk` に `source_snapshot`(デフォルト null)変数を追加し、データディスクの type を `pd-standard` に変更する。`terraform/main/disk.tf` から変数を受け渡す
+- [x] 1.3 `terraform/modules/gcp-compute/main.tf` のブートディスク type を `pd-standard` に変更する
+- [x] 1.4 `.github/workflows/vaultwarden-deploy.yml` の `--zone=asia-northeast1-b` を `us-west1-b` に変更する
+- [x] 1.5 `README.md` / `README.ja.md` のアーキテクチャ図(`asia-northeast1`)と、リージョン・ディスク種別の記述を更新する
+- [x] 1.6 `docs/CUSTOMIZATION.md` の `region` / `zone` デフォルト値の記述を更新する
+- [x] 1.7 `terraform fmt -check` / `terraform validate` / lint ワークフロー相当のチェックが通ることを確認する
 
 ## 2. 移行前の準備(手動)
 

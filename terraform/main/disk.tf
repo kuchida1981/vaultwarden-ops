@@ -3,4 +3,6 @@ module "gcp_disk" {
 
   project_id = var.project_id
   zone       = var.zone
+
+  source_snapshot = var.data_disk_source_snapshot
 }
