@@ -36,15 +36,18 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 無料枠に収めるためデータディスク・ブートディスクとも pd-standard とする。ただし SQLite の fsync で応答性が落ちる可能性があるため、移行後に実測し、許容できなければ pd-balanced に戻す(コスト月数十セント〜数ドル)。
 - 注意: 無料枠の 30GB は請求アカウント合計。n8n 側のディスクと合算して超過する可能性があり、超過分は少額課金される。許容する前提とする(Open Questions 参照)
 
-### D4: 静的IPは新規払い出しとし、DNS は u-rei-infra の PR で切替
-旧IPは移行できない。DNS(`u-rei.com`)は別リポジトリ `u-rei-infra`(../u-rei.com-dns、Cloud DNS + Terraform)が全レコードを一元管理しているため、新VM起動後に新IPで `terraform/main/variables.tf` の `vaultwarden_ip` を更新する PR を作り、マージ・承認・apply で A レコードを切り替える。TTL は全レコード共通の `record_ttl`(3600秒)で、他サービスへの影響を避けるため短縮しない。切替の反映に最大1時間程度かかることを許容する。Caddy の証明書(ディスク上に保存)はそのまま持ち越されるが、DNS 切替前は新IPで ACME 更新が通らない点に留意する。
-- 注: 使用中の標準外部IPv4 は無料枠外で課金される(旧リージョンと同額で変化なし)
+### D4: 静的IPは事前に新規確保し、DNS は低TTL+事前準備した PR で切り替える(切替時間の短縮)
+旧IPは移行できない。切替時間の支配要因は DNS の反映待ち(現状は全レコード共通の TTL 3600 秒)と VM の構築時間のため、次の2点で短縮する。
+- **TTL**: `u-rei-infra`(../u-rei.com-dns、Cloud DNS + Terraform)で、vaultwarden の A レコードだけに専用の TTL(60秒)を設定する(共通の `record_ttl` は変更せず、n8n 等へは影響させない)。旧TTL(3600秒)が切れるよう、切替の1時間以上前にマージ・apply しておく
+- **新IPの事前確保**: 新リージョンの静的IPを `gcloud compute addresses create` で事前に作成して Terraform に import し、新IPを切替前に確定させる。これにより `vaultwarden_ip` を新IPにする DNS PR を事前に用意でき、VM 停止と同時にマージして、DNS の更新を新VMの構築時間(数分)と並行させられる。旧IP(asia-northeast1)は state から外して残すため、ロールバック時にも使える
+
+Caddy の証明書(ディスク上に保存)はそのまま持ち越されるため、DNS 切替前でも新VMは起動できる。使い終えた旧IPは手動で削除する。
 
 ### D5: Tailscale ノードの重複を避ける
 同名ホスト `vaultwarden` が tailnet に残っていると、新ノードは `vaultwarden-1` になり、NAS バックアップ・`tailscale serve` の MagicDNS 名・`tailscale ssh` の宛先が変わってしまう。旧VM停止後・新VM起動前に Tailscale admin で旧ノードを削除する。起動後にホスト名がずれた場合は `tailscale set --hostname=vaultwarden` で修正する。
 
-### D6: 実行順序は「旧VM停止 → スナップショット → state rm → apply(旧VM/IP破棄+新規作成)→ DNS → 検証 → 旧ディスク削除」
-`terraform apply` で VM・静的IP は自動的に destroy & create される(zone/region 変更による replace)。旧ディスクのみ事前に state から外す。
+### D6: 実行順序は「事前準備(TTL・新IP) → 旧VM停止 → スナップショット → state rm → apply と DNS PR のマージを並行 → 検証 → 旧リソース削除」
+`terraform apply` では VM のみが replace される(ディスクと静的IPは事前に state から外す/import 済み)。切替時間は「バックアップ+停止+スナップショット(数分)+新VMの構築(数分)」にほぼ収まり、見込みは10〜15分程度。
 
 ### D7: デプロイワークフローのゾーン固定をやめる
 `vaultwarden-deploy.yml` の `--zone=asia-northeast1-b` を `us-west1-b` に修正する。今後の再移行で同じ取りこぼしが起きないよう、リポジトリの変数/`gcloud compute instances list --filter` からの解決は過剰として今回は固定値の置換に留める。
@@ -62,17 +65,25 @@ vaultwarden は現在 asia-northeast1-b の e2-micro 1台 + 専用データデ�
 
 ## Migration Plan
 
-1. 事前: NAS バックアップの直近成功を確認
-2. 旧VMで `systemctl start backup.service` → NAS へ最新バックアップ
-3. 旧VMを停止(`gcloud compute instances stop`)し、データディスクのスナップショットを取得
-4. Tailscale admin で旧ノード `vaultwarden` を削除
-5. `terraform state rm module.gcp_disk.google_compute_disk.vaultwarden_data`
-6. コード変更(region/zone、pd-standard、`source_snapshot`)を反映し `terraform plan` で想定どおり(旧VM・旧IP destroy、新ディスク・新VM・新IP create)であることを確認して apply
-7. `vm_external_ip` の出力値で `u-rei-infra` の `vaultwarden_ip` を更新する PR を作成・マージし、apply する
-8. 検証: `https://vaultwarden.u-rei.com` ログイン、Vault 内容、添付、`tailscale ssh vaultwarden`、`/admin`(tailnet 経由)、メール送信、`systemctl start backup.service` による NAS 疎通
-9. 数日間観察後、旧ディスクを `gcloud compute disks delete` で削除、スナップショットも期間を置いて削除。10. n8n-ops の README を更新
+**事前準備(切替の1時間以上前)**
+1. NAS バックアップの直近成功を確認
+2. `u-rei-infra` に vaultwarden 専用 TTL(60秒)を設定する PR をマージ・apply し、旧TTL(3600秒)が切れるまで待つ
+3. `gcloud compute addresses create vaultwarden-static-ip --region us-west1` で新IPを確保し、`terraform state rm` で旧アドレスを外して新アドレスを `terraform import` する(旧IPは残す)
+4. 新IPを `vaultwarden_ip` にする `u-rei-infra` の PR を用意する(マージはしない)
 
-**ロールバック**(手順 8 の検証前): コードを元に戻し、旧ディスクを `terraform import` し直すか、旧ディスクから旧ゾーンに VM を作り直して DNS を旧IPに戻す(旧静的IPは apply で解放されるため、旧IPが確保できない場合は新IPで DNS を更新)。手順 9 で旧ディスクを削除した後は、スナップショットまたは NAS バックアップからの復元になる。
+**切替(ダウンタイム開始)**
+5. 旧VMで `systemctl start backup.service` → NAS へ最新バックアップ
+6. 旧VMを停止し、データディスクのスナップショットを取得
+7. Tailscale admin で旧ノード `vaultwarden` を削除
+8. `terraform state rm module.gcp_disk.google_compute_disk.vaultwarden_data`
+9. `data_disk_source_snapshot` を指定して `terraform plan` を確認(旧VM destroy、新ディスク・新VM create のみ)し、apply。並行して手順4の DNS PR をマージし、production の承認を行う
+10. 検証: `https://vaultwarden.u-rei.com` ログイン、Vault 内容、添付、`tailscale ssh vaultwarden`、`/admin`(tailnet 経由)、メール送信、`systemctl start backup.service` による NAS 疎通
+
+**後始末**
+11. 数日間観察後、旧ディスク・旧IP(asia-northeast1)を `gcloud` で削除、スナップショットも期間を置いて削除。vaultwarden 専用 TTL を継続するか戻すか決める
+12. n8n-ops の README を更新
+
+**ロールバック**(手順 8 の検証前): コードを元に戻し、旧ディスクを `terraform import` し直すか、旧ディスクから旧ゾーンに VM を作り直して DNS を旧IPに戻す(旧IPは残してあるため、DNS を旧IPに戻せる)。手順 9 で旧ディスクを削除した後は、スナップショットまたは NAS バックアップからの復元になる。
 
 ## Open Questions
 

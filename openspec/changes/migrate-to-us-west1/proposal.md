@@ -25,6 +25,6 @@
 ## Impact
 
 - **影響コード**: `terraform/main/variables.tf`、`terraform/modules/gcp-disk/main.tf`、`terraform/modules/gcp-compute/main.tf`(ブートディスク種別)、`.github/workflows/vaultwarden-deploy.yml`、`README.md`、`README.ja.md`、`docs/CUSTOMIZATION.md`、`openspec/specs/gcp-infrastructure/spec.md`
-- **影響リソース**: VM、データディスク、静的IP は旧リージョンのものが destroy され新リージョンで作成される。ファイアウォール、Secret Manager、IAM、Tailscale ACL は影響なし
-- **ダウンタイム**: 旧VM停止から DNS 切替・伝播完了まで(数十分〜数時間見込み)。その間 vaultwarden は利用不可
+- **影響リソース**: VM、データディスク、静的IPは新リージョンに別途確保して import し(旧IPはロールバック用に残す)、VM は旧リージョンのものが destroy され新リージョンで作成される。ファイアウォール、Secret Manager、IAM、Tailscale ACL は影響なし
+- **ダウンタイム**: 旧VM停止から 新VM構築完了まで(事前準備により10〜15分程度の見込み)。その間 vaultwarden は利用不可
 - **外部影響**: `u-rei-infra` への DNS 更新 PR、Tailscale の旧ノード削除、NAS バックアップ(Tailscale 経由)の疎通再確認、n8n-ops の README 更新と e2-small 化との前後関係
