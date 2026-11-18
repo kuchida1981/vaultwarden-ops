@@ -112,7 +112,8 @@ Emails from Vaultwarden are sent via Brevo's SMTP relay.
 1. Create an account at https://app.brevo.com, register the domain you'll send from (`u-rei.com` in this repository), and complete domain authentication. Add the DKIM (CNAME record) and DMARC (TXT record) entries it provides to your domain's DNS (SPF is not needed since Brevo uses its own domain in the Envelope From)
 2. Register a send-only address (e.g. `vaultwarden@u-rei.com`) under Brevo's "Senders"
 3. Under "SMTP & API" → "SMTP" tab, issue a new SMTP key. Note it down along with the SMTP login shown (this is separate from your account login email/password)
-4. You'll need these values for the GitHub Secrets setup below
+4. If you enable Brevo's "Authorised IPs" security feature (Security → Authorised IPs), add the VM's static external IP (`terraform output vm_external_ip`). Otherwise sending fails with "Unauthorized IP address". Remember to update this list whenever the VM's IP changes (e.g. a region migration)
+5. You'll need these values for the GitHub Secrets setup below
 
 ### 4. Set up the rsync server on the NAS for periodic backups (manual)
 

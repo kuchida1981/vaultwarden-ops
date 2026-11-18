@@ -112,7 +112,8 @@ VaultwardenからのメールはBrevoのSMTPリレー経由で送信する。
 1. https://app.brevo.com でアカウントを作成し、送信元に使うドメイン(このリポジトリでは`u-rei.com`)を登録してドメイン認証を行う。案内されるDKIM(CNAMEレコード)・DMARC(TXTレコード)をドメインのDNSに追加する(SPFはBrevoがEnvelope Fromに自社ドメインを使うため追加不要)
 2. 送信専用アドレス(例: `vaultwarden@u-rei.com`)をBrevoの「Senders」に登録する
 3. 「SMTP & API」→「SMTP」タブで新しいSMTPキーを発行する。表示されるSMTPログインとあわせて控える(アカウントのログインメール/パスワードとは別物)
-4. 控えた値は次のGitHub Secrets登録で使う
+4. Brevoのセキュリティ機能「Authorised IPs」(Security → Authorised IPs)を有効にしている場合は、VMの静的外部IP(`terraform output vm_external_ip`)を追加する。追加しないと送信時に"Unauthorized IP address"で失敗する。リージョン移行などでVMのIPが変わるときは、この許可リストも更新すること
+5. 控えた値は次のGitHub Secrets登録で使う
 
 ### 4. NASへの定期バックアップ用Rsyncサーバーの設定(手動)
 
