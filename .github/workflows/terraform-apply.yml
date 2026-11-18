@@ -81,7 +81,7 @@ jobs:
         run: |
           gcloud compute ssh vaultwarden \
             --project="${{ secrets.GCP_PROJECT_ID }}" \
-            --zone=asia-northeast1-b \
+            --zone=us-west1-b \
             --tunnel-through-iap \
             --quiet \
             --command='sudo google_metadata_script_runner startup'
