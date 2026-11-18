@@ -112,5 +112,7 @@ variable "nas_backup_password" {
 variable "data_disk_source_snapshot" {
   description = "Snapshot to create the data disk from when moving the VM to a new zone/region. Leave null in steady state."
   type        = string
-  default     = null
+  # One-off for the us-west1 migration; reset to null afterwards (the disk
+  # ignores later changes to this value, so doing so causes no replacement).
+  default = "vaultwarden-data-migration"
 }

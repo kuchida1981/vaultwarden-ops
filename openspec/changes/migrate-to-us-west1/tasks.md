@@ -10,19 +10,20 @@
 
 ## 2. 切替時間短縮のための事前準備(切替の1時間以上前)
 
-- [ ] 2.1 NAS バックアップの直近成功を確認する
+- [x] 2.1 NAS バックアップの直近成功を確認する → **失敗中と判明**(synology-nas が tailnet で27日間オフライン、rsync が接続タイムアウト)。NAS は復元元にならないため、安全スナップショット `vaultwarden-data-safety-20261118` を取得済み(2.6)。NAS の復旧は本移行とは別件
 - [ ] 2.2 `u-rei-infra` で vaultwarden の A レコード専用 TTL(60秒)を設定する PR を作成し、マージ・apply する。旧TTL(3600秒)が切れるまで待つ
-- [ ] 2.3 `gcloud compute addresses create vaultwarden-static-ip --region us-west1` で新IPを確保し、旧アドレスを `terraform state rm`、新アドレスを `terraform import` する。`terraform plan` で静的IPに差分が出ないことを確認する
+- [x] 2.3 新IP `136.87.117.100` を `gcloud compute addresses create vaultwarden-static-ip --region us-west1` で確保済み。Terraform への取り込みは `terraform/main/moved.tf` の `import` ブロックで行う(apply 時に CI が実行)。旧アドレスの `terraform state rm` は切替の直前に行う(3.5)
 - [ ] 2.4 新IPを `vaultwarden_ip` に設定する `u-rei-infra` の PR を作成する(マージはしない)
 - [ ] 2.5 利用の少ない時間帯に作業枠を確保する
+- [x] 2.6 念のための安全スナップショット `vaultwarden-data-safety-20261118` を取得済み(稼働中のため crash-consistent。最終の移行用スナップショットは 3.3 で停止後に取得)
 
 ## 3. データ移行(手動・ダウンタイム開始)
 
 - [ ] 3.1 旧VMで `systemctl start backup.service` を実行し、NAS へ最新バックアップを取る
 - [ ] 3.2 旧VMを停止する(`gcloud compute instances stop vaultwarden --zone asia-northeast1-b`)
-- [ ] 3.3 データディスク `vaultwarden-data` のスナップショットを取得する(`gcloud compute disks snapshot`)
+- [ ] 3.3 停止後のデータディスク `vaultwarden-data` のスナップショットを、名前 `vaultwarden-data-migration`(`data_disk_source_snapshot` のデフォルト値)で取得する(`gcloud compute disks snapshot`)
 - [ ] 3.4 Tailscale admin で旧ノード `vaultwarden` を削除する
-- [ ] 3.5 `terraform state rm module.gcp_disk.google_compute_disk.vaultwarden_data` を実行する
+- [ ] 3.5 `terraform state rm` を2件実行する: `module.gcp_disk.google_compute_disk.vaultwarden_data`、`module.gcp_network.google_compute_address.vaultwarden`(旧IP。新IPは import ブロックで取り込まれる)
 - [ ] 3.6 `data_disk_source_snapshot` に 3.3 のスナップショットを指定して `terraform plan` を実行し、旧VMの destroy と新ディスク・新VMの create のみであること(旧ディスク・旧IPが destroy 対象に出ないこと)を確認する
 - [ ] 3.7 `terraform apply` を実行する(PR マージ経由の場合は terraform-apply ワークフロー)
 
