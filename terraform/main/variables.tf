@@ -6,13 +6,13 @@ variable "project_id" {
 variable "region" {
   description = "Region for regional resources."
   type        = string
-  default     = "asia-northeast1"
+  default     = "us-west1"
 }
 
 variable "zone" {
   description = "Zone for the VM and its data disk."
   type        = string
-  default     = "asia-northeast1-b"
+  default     = "us-west1-b"
 }
 
 variable "domain" {
@@ -107,4 +107,12 @@ variable "nas_backup_password" {
   description = "rsync daemon password for the NAS backup account."
   type        = string
   sensitive   = true
+}
+
+variable "data_disk_source_snapshot" {
+  description = "Snapshot to create the data disk from when moving the VM to a new zone/region. Leave null in steady state."
+  type        = string
+  # One-off for the us-west1 migration; reset to null afterwards (the disk
+  # ignores later changes to this value, so doing so causes no replacement).
+  default = "vaultwarden-data-migration"
 }

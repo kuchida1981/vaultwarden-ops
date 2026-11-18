@@ -26,7 +26,7 @@ These variables ship with a default tied to the maintainer's own setup, but are 
 | Variable | Default | Override for |
 |---|---|---|
 | `domain` | `vaultwarden.u-rei.com` | Your own domain |
-| `region` / `zone` | `asia-northeast1` / `asia-northeast1-b` | Your preferred GCP region |
+| `region` / `zone` | `us-west1` / `us-west1-b` | Your preferred GCP region |
 | `smtp_host` | `smtp-relay.brevo.com` | A different SMTP provider's relay host |
 | `smtp_port` | `587` | Your provider's port |
 | `smtp_security` | `starttls` | Your provider's required mode (`starttls`, `force_tls`, or `off`) |
