@@ -138,13 +138,3 @@ moved {
   from = google_compute_instance.vaultwarden
   to   = module.gcp_compute.google_compute_instance.vaultwarden
 }
-
-# One-off: the us-west1 static IP was reserved ahead of the region migration
-# (see openspec/changes/migrate-to-us-west1) so DNS could be prepared before
-# cutover. The old asia-northeast1 address was removed from state with
-# `terraform state rm`, so this adopts the new one at the same address.
-# Safe to delete after the migration's apply.
-import {
-  to = module.gcp_network.google_compute_address.vaultwarden
-  id = "projects/${var.project_id}/regions/${var.region}/addresses/vaultwarden-static-ip"
-}
