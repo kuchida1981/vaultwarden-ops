@@ -2,7 +2,7 @@
 
 [日本語](README.ja.md)
 
-A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (Tokyo region). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
+A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (us-west1 region, chosen to stay within the GCP always-free tier). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
 
 - Public URL: `https://vaultwarden.u-rei.com` (family members access it normally from here)
 - SSH: routine operator access is only via the Tailscale tailnet (`tailscale ssh`). Vaultwarden version-update deploys are the sole exception — `vaultwarden-deploy.yml` SSHes as the CI service account over a GCP IAP tunnel, gated by manual approval (see "Updating Vaultwarden" below)
@@ -19,7 +19,7 @@ A complete infrastructure setup for self-hosting Vaultwarden (a password manager
 ```mermaid
 flowchart TB
     internet["Internet (anyone)"]
-    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
+    subgraph vm["GCE VM (e2-micro, us-west1, Debian13)"]
         caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
         disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
     end
@@ -112,7 +112,8 @@ Emails from Vaultwarden are sent via Brevo's SMTP relay.
 1. Create an account at https://app.brevo.com, register the domain you'll send from (`u-rei.com` in this repository), and complete domain authentication. Add the DKIM (CNAME record) and DMARC (TXT record) entries it provides to your domain's DNS (SPF is not needed since Brevo uses its own domain in the Envelope From)
 2. Register a send-only address (e.g. `vaultwarden@u-rei.com`) under Brevo's "Senders"
 3. Under "SMTP & API" → "SMTP" tab, issue a new SMTP key. Note it down along with the SMTP login shown (this is separate from your account login email/password)
-4. You'll need these values for the GitHub Secrets setup below
+4. If you enable Brevo's "Authorised IPs" security feature (Security → Authorised IPs), add the VM's static external IP (`terraform output vm_external_ip`). Otherwise sending fails with "Unauthorized IP address". Remember to update this list whenever the VM's IP changes (e.g. a region migration)
+5. You'll need these values for the GitHub Secrets setup below
 
 ### 4. Set up the rsync server on the NAS for periodic backups (manual)
 
@@ -154,16 +155,16 @@ After merging to `main`, the GitHub Actions `terraform apply` workflow will paus
 
 **Tailnet ACL**: this repository does not manage the tailnet ACL. `tailscale_acl` replaces the whole policy file as one resource, so it must have a single owner; here that is `kuchida1981/u-rei-infra` (`terraform/tailscale`). Before the first apply, make sure `tag:vaultwarden-server` exists in your tailnet's `tagOwners` (step 2.1), otherwise issuing the auth key fails. To add a new tailnet-connected service, change the ACL owner repository first, then the service repository.
 
-### 8. Create the DNS record manually
+### 8. Create the DNS record
 
-`u-rei.com` is managed under the registrar's default DNS and is not automated via Terraform. After the apply completes, use the following output value to manually create an A record:
+The maintainer's `u-rei.com` zone is managed by the separate `kuchida1981/u-rei-infra` repository (Cloud DNS + Terraform): open a PR there that sets `vaultwarden_ip` in `terraform/main/variables.tf` to the value below. If you run your own domain, create the A record wherever you manage DNS. After the apply completes, get the IP from:
 
 ```bash
 cd terraform/main
 terraform output vm_external_ip
 ```
 
-In `u-rei.com`'s DNS management screen, create an A record for the `vaultwarden` subdomain pointing to this IP.
+Point an A record for the `vaultwarden` subdomain at this IP.
 
 ### 9. Access path to the admin panel (your device only)
 

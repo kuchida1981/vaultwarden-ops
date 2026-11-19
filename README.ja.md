@@ -2,7 +2,7 @@
 
 [English](README.md)
 
-自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(東京リージョン)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
+自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(us-west1リージョン。GCP常時無料枠の対象リージョンのため)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
 
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
 - SSH: 通常の運用者アクセスはTailscale tailnet経由(`tailscale ssh`)のみ。Vaultwardenのバージョン更新デプロイに限り、`vaultwarden-deploy.yml`が承認ゲートを経てGCP IAP tunnel経由でCI用サービスアカウントとしてSSHする(下記「Vaultwardenのバージョン更新」参照)
@@ -19,7 +19,7 @@
 ```mermaid
 flowchart TB
     internet["インターネット (誰でも)"]
-    subgraph vm["GCE VM (e2-micro, asia-northeast1, Debian13)"]
+    subgraph vm["GCE VM (e2-micro, us-west1, Debian13)"]
         caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
         disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
     end
@@ -112,7 +112,8 @@ VaultwardenからのメールはBrevoのSMTPリレー経由で送信する。
 1. https://app.brevo.com でアカウントを作成し、送信元に使うドメイン(このリポジトリでは`u-rei.com`)を登録してドメイン認証を行う。案内されるDKIM(CNAMEレコード)・DMARC(TXTレコード)をドメインのDNSに追加する(SPFはBrevoがEnvelope Fromに自社ドメインを使うため追加不要)
 2. 送信専用アドレス(例: `vaultwarden@u-rei.com`)をBrevoの「Senders」に登録する
 3. 「SMTP & API」→「SMTP」タブで新しいSMTPキーを発行する。表示されるSMTPログインとあわせて控える(アカウントのログインメール/パスワードとは別物)
-4. 控えた値は次のGitHub Secrets登録で使う
+4. Brevoのセキュリティ機能「Authorised IPs」(Security → Authorised IPs)を有効にしている場合は、VMの静的外部IP(`terraform output vm_external_ip`)を追加する。追加しないと送信時に"Unauthorized IP address"で失敗する。リージョン移行などでVMのIPが変わるときは、この許可リストも更新すること
+5. 控えた値は次のGitHub Secrets登録で使う
 
 ### 4. NASへの定期バックアップ用Rsyncサーバーの設定(手動)
 
@@ -154,16 +155,16 @@ VMは毎日、Synology NASへVaultwardenのデータ(DBの一貫性スナップ�
 
 **tailnetのACL**: このリポジトリはtailnetのACLを管理しない。`tailscale_acl`はポリシーファイル全体を1つのリソースとして上書きするため所有者は1つでなければならず、ここでは`kuchida1981/u-rei-infra`(`terraform/tailscale`)が所有する。初回apply前に、tailnetの`tagOwners`に`tag:vaultwarden-server`が存在することを確認すること(手順2.1)。無いと認証キーの発行が失敗する。tailnetに接続する新しいサービスを追加する際は、先にACLの所有リポジトリを変更し、その後にサービス側のリポジトリを変更する。
 
-### 8. DNSレコードの手動作成
+### 8. DNSレコードの作成
 
-`u-rei.com`はレジストラのデフォルトDNSで管理しており、Terraformでは自動化していない。apply完了後、以下の出力値を使って手動でAレコードを作成する:
+メンテナの`u-rei.com`ゾーンは別リポジトリ`kuchida1981/u-rei-infra`(Cloud DNS + Terraform)が管理している。そちらで`terraform/main/variables.tf`の`vaultwarden_ip`を下記の値に更新するPRを立てる。自分のドメインで運用する場合は、DNSを管理している場所でAレコードを作成する。apply完了後、IPは以下で取得できる:
 
 ```bash
 cd terraform/main
 terraform output vm_external_ip
 ```
 
-`u-rei.com`のDNS管理画面で `vaultwarden` サブドメインのAレコードをこのIPに向けて作成する。
+`vaultwarden`サブドメインのAレコードをこのIPに向ける。
 
 ### 9. adminパネルへのアクセス経路(自分の端末のみ)
 

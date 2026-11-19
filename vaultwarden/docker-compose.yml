@@ -39,7 +39,7 @@ services:
       - internal
 
   caddy:
-    image: caddy:2.11.7
+    image: caddy:2.11.8
     restart: unless-stopped
     ports:
       - "80:80"
