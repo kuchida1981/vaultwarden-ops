@@ -37,17 +37,17 @@
 - [x] 4.4 tailnet 経由の `/admin` と、公開ドメインでの `/admin` が 403 であることを確認する
 - [x] 4.5 メール送信(SMTP)が機能することを確認する
 - [x] 4.6 VM 上で `systemctl start backup.service` を実行し、NAS への転送が成功することを確認する
-- [ ] 4.7 `vaultwarden-deploy.yml` を手動実行(workflow_dispatch)し、新ゾーンへのデプロイが成功することを確認する
+- [x] 4.7 dependabot の caddy 更新(#142)のマージで `vaultwarden-deploy.yml` が新ゾーンへデプロイできることを確認した(workflow_dispatch は無いため)
 - [ ] 4.8 応答性を確認し、pd-standard で許容できなければ pd-balanced に戻すか判断する
 
 ## 5. 後始末
 
 - [ ] 5.0 `u-rei-infra` の vaultwarden 専用 TTL を継続するか、共通値に戻すか決める
 
-- [ ] 5.1 数日間の安定稼働を確認後、旧IP(asia-northeast1)と旧ディスク `vaultwarden-data`(asia-northeast1-b)を `gcloud compute disks delete` で削除する
-- [ ] 5.2 `data_disk_source_snapshot` を null に戻し(`ignore_changes = [snapshot]` は追加済み)、`terraform plan` が `No changes` になることを確認する
+- [x] 5.1 数日間の安定稼働を確認後、旧IP(asia-northeast1)と旧ディスク `vaultwarden-data`(asia-northeast1-b)を `gcloud compute disks delete` で削除する
+- [ ] 5.2 `data_disk_source_snapshot` を null に戻し(`ignore_changes = [snapshot]` は追加済み)、`terraform plan` が `No changes` になることを確認する(PR で変数を null に戻し、`import` ブロックも削除済み。CI の plan 結果を確認する)
 - [ ] 5.3 スナップショットを一定期間(例: 2週間)保持した後に削除する
-- [ ] 5.5 旧リージョンに残リソース(VM・ディスク・静的IP)がないことを `gcloud` で確認する
+- [x] 5.5 旧リージョンに残リソース(VM・ディスク・静的IP)がないことを `gcloud` で確認する
 - [ ] 5.6 `openspec/specs/gcp-infrastructure/spec.md` の Purpose の「東京リージョン」記述を us-west1 に更新する(archive 時の spec sync 後)
 
 ## 6. 他リポジトリ・順序依存
