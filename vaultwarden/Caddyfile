@@ -1,5 +1,42 @@
+# --- logging ---
+# Logs go to stdout -> Docker json-file -> Ops Agent -> Cloud Logging, so they
+# must never carry secrets. Vaultwarden puts tokens in the query string on some
+# requests (notification websocket, attachment/send downloads), and Caddy logs
+# every request header unless told otherwise. So: token query keys are
+# deleted, all request/response headers are dropped, and User-Agent (useful to
+# tell scanners apart) is re-added as its own field by `log_append`.
+(log_filter) {
+	format filter {
+		wrap json
+		fields {
+			request>uri query {
+				delete access_token
+				delete token
+				delete Token
+				delete t
+			}
+			request>headers delete
+			resp_headers delete
+		}
+	}
+}
+
+# The default logger also needs the filter: proxy errors (e.g. a 502 while
+# vaultwarden restarts) are logged there with the full request attached.
+{
+	log default {
+		import log_filter
+	}
+}
+
 {$DOMAIN} {
 	encode gzip
+
+	log {
+		output stdout
+		import log_filter
+	}
+	log_append user_agent {header.User-Agent}
 
 	# trusted_proxies is deliberately left unset everywhere in this file:
 	# Caddy sits directly at the internet edge here (no proxy in front of
@@ -53,6 +90,12 @@
 # is deliberately unencrypted - TLS for this path is `tailscale serve`'s job,
 # not Caddy's.
 http://:8080 {
+	log {
+		output stdout
+		import log_filter
+	}
+	log_append user_agent {header.User-Agent}
+
 	handle /admin* {
 		reverse_proxy vaultwarden:80
 	}

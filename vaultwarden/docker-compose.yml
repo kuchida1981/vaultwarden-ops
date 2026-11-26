@@ -9,6 +9,13 @@ services:
       DOMAIN: ${DOMAIN}
       ADMIN_TOKEN: ${ADMIN_TOKEN}
       SIGNUPS_ALLOWED: "false"
+      # Vaultwarden's per-request log line prints the full URI, query tokens
+      # included (access_token, ?token=, ...), and these logs are shipped to
+      # Cloud Logging. Only that `request` target is turned off: failed logins
+      # (with IP and username) and the response lines, which show route
+      # templates like <token> instead of values, are still logged. Caddy's
+      # access log covers what was requested, with tokens stripped.
+      LOG_LEVEL: "info,request=off"
       WEBSOCKET_ENABLED: "true"
       # Caddy's reverse_proxy sends X-Forwarded-For by default (not
       # X-Real-IP, which is Vaultwarden's own default expectation) - see

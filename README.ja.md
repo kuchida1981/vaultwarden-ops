@@ -185,6 +185,26 @@ https://vaultwarden.<自分のtailnet名>.ts.net/admin
 - `/admin`から家族分のメールアドレスを入力して招待する。SMTP設定済みのため招待メールが自動送信される(迷惑フォルダも確認する)
 - VM上で`systemctl start backup.service`を実行し、NAS側の共有フォルダにバックアップが転送されることを確認する
 
+## セキュリティログ
+
+攻撃の痕跡は、VMの外のCloud Loggingに保存する。アラートは未整備。保持用のlog bucket(`security-logs`、90日)、そのsink、Secret Managerの監査設定は、同じGCPプロジェクトのn8n-opsが所有しており、ここでは定義しない。sinkはログ名で拾う。
+
+| 内容 | ログ名(`log_id`) |
+|---|---|
+| Caddyのアクセスログ(JSON)とVaultwardenの出力 | `docker_containers`(`jsonPayload.attrs."com.docker.compose.service"`が`caddy`か`vaultwarden`) |
+| ホストのjournal(sshdを含む) | `host_journal` |
+
+```
+# 特定のパスへのリクエストとクライアントIP
+log_id("docker_containers") AND jsonPayload.request.uri=~"^/admin"
+
+# ログイン失敗(VaultwardenがIPとユーザー名を出力する)
+log_id("docker_containers") AND jsonPayload.log=~"Username or password is incorrect"
+```
+
+- **秘密はログに残さない。2つのフィルタで担保する。** Caddyはトークンのクエリキー(`access_token`、`token`、`Token`、`t`)を削除し、ヘッダをすべて落とす(User-Agentは`user_agent`として追加し直す)。アクセスログとエラーログの両方に適用する。Vaultwarden本体の`request`ログは、トークンを含むURI全体を出すため`LOG_LEVEL`で止めている。調査のために`LOG_LEVEL`を上げるとトークンがCloud Loggingへ送られるので、終わったら戻すこと。
+- ログのローテーションは新しく作られたコンテナにだけ適用される。startup-scriptは`daemon.json`が変わったときにコンテナを作り直す。
+
 ## Vaultwardenのバージョン更新
 
 vaultwardenイメージは`vaultwarden/docker-compose.yml`でリテラルタグ固定しており、更新は以下の2段階の承認を経て反映される。即時反映は意図しておらず、Dependabotが新バージョンを検知した都度、手動でレビューする運用を想定している。

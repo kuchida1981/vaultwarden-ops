@@ -5,10 +5,10 @@
 
 ## 2. 実装
 
-- [ ] 2.1 `vaultwarden/Caddyfile`の両サイトブロックに`log`（`format filter`でクエリのトークンを削除、JSON、stdout）を追加し、`caddy validate`で確認する
-- [ ] 2.2 ローカルでCaddyを起動し、`access_token`付きリクエストと`Authorization`/`Cookie`ヘッダが、ログに値を残さないことを確認する
-- [ ] 2.3 startup-scriptの`daemon.json`にローテーションとlabelを追加する（`userland-proxy: false`を維持）
-- [ ] 2.4 startup-scriptでOps Agentの`config.yaml`を生成する（`n8n-ops`と同じreceiver id、収集パスは`/var/lib/docker/containers`）
+- [x] 2.1 `vaultwarden/Caddyfile`の両サイトブロックに`log`（`format filter`でクエリのトークンを削除、JSON、stdout）を追加し、`caddy validate`で確認する（`caddy validate`は2.11.4と2.11.9で成功）
+- [x] 2.2 ローカルでCaddyを起動し、`access_token`付きリクエストと`Authorization`/`Cookie`ヘッダが、ログに値を残さないことを確認する（内部ネットワークのDockerで確認。アクセスログ・502のエラーログとも秘密なし。本体のrequestログにトークンが出たため`LOG_LEVEL=info,request=off`を追加し、ログイン失敗の記録が残ることも確認）
+- [x] 2.3 startup-scriptの`daemon.json`にローテーションとlabelを追加する（`userland-proxy: false`を維持）
+- [x] 2.4 startup-scriptでOps Agentの`config.yaml`を生成する（`n8n-ops`と同じreceiver id、収集パスは`/var/lib/docker/containers`）
 - [ ] 2.5 CIのshellcheck・terraform validate・planを通し、PRを作成する
 
 ## 3. 反映と確認
@@ -23,4 +23,4 @@
 
 ## 4. ドキュメント
 
-- [ ] 4.1 README.md/README.ja.mdに、ログの見方と注意点を追記する
+- [x] 4.1 README.md/README.ja.mdに、ログの見方と注意点を追記する

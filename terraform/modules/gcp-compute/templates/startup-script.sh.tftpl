@@ -36,10 +36,15 @@ systemctl enable --now unattended-upgrades
 # remote_ip-based /admin gating (it would 403 *everyone*, tailnet or not).
 # With it disabled, published ports are pure iptables DNAT, which preserves
 # the real source IP end to end.
+#
+# log-driver/log-opts cap each container's json-file log (10m x 5), and
+# `labels` copies the compose service name into each record's attrs so Cloud
+# Logging entries can be told apart (caddy vs vaultwarden).
 mkdir -p /etc/docker
 DAEMON_JSON_CHANGED=0
-if [ "$(cat /etc/docker/daemon.json 2>/dev/null)" != '{"userland-proxy": false}' ]; then
-  echo '{"userland-proxy": false}' > /etc/docker/daemon.json
+DAEMON_JSON='{"userland-proxy": false, "log-driver": "json-file", "log-opts": {"max-size": "10m", "max-file": "5", "labels": "com.docker.compose.service"}}'
+if [ "$(cat /etc/docker/daemon.json 2>/dev/null)" != "$DAEMON_JSON" ]; then
+  echo "$DAEMON_JSON" > /etc/docker/daemon.json
   DAEMON_JSON_CHANGED=1
 fi
 
@@ -139,7 +144,64 @@ EOF
 chmod 600 /opt/vaultwarden/.env
 
 cd "$APP_DIR/vaultwarden"
-docker compose --env-file /opt/vaultwarden/.env up -d
+# log-opts only apply to newly created containers, so recreate all of them
+# once when daemon.json changed. This also deletes their old log files, which
+# matters for the Ops Agent step below.
+if [ "$DAEMON_JSON_CHANGED" = "1" ]; then
+  docker compose --env-file /opt/vaultwarden/.env up -d --force-recreate
+else
+  docker compose --env-file /opt/vaultwarden/.env up -d
+fi
+
+# --- ops agent log collection: container logs + host journal -> Cloud Logging ---
+# Must stay AFTER `compose up`: containers created before the LOG_LEVEL and
+# Caddy log filters existed may have tokens in their log files, and the agent
+# would ship them if it saw those files.
+# The receiver ids (docker_containers, host_journal) become the log names and
+# must match the security-logs sink owned by n8n-ops (terraform/bootstrap),
+# which keeps them for 90 days. The journal receiver is what captures sshd.
+# docker_json unwraps Docker's envelope; app_json parses Caddy's JSON lines
+# (Vaultwarden's plain-text lines pass through unparsed).
+# The grep guard covers a failed `git pull` above: with an old checkout the
+# containers log without token filtering, so nothing must be shipped yet.
+if grep -q 'request=off' docker-compose.yml && grep -q 'log_filter' Caddyfile; then
+OPS_AGENT_CONFIG=/etc/google-cloud-ops-agent/config.yaml
+mkdir -p "$(dirname "$OPS_AGENT_CONFIG")"
+cat >"$OPS_AGENT_CONFIG.new" <<'OPSCONF'
+logging:
+  receivers:
+    docker_containers:
+      type: files
+      include_paths:
+        - /var/lib/docker/containers/*/*-json.log
+      record_log_file_path: true
+    host_journal:
+      type: systemd_journald
+  processors:
+    docker_json:
+      type: parse_json
+      time_key: time
+      time_format: "%Y-%m-%dT%H:%M:%S.%LZ"
+    app_json:
+      type: parse_json
+      field: log
+  service:
+    pipelines:
+      docker_pipeline:
+        receivers: [docker_containers]
+        processors: [docker_json, app_json]
+      journal_pipeline:
+        receivers: [host_journal]
+OPSCONF
+if ! cmp -s "$OPS_AGENT_CONFIG.new" "$OPS_AGENT_CONFIG"; then
+  mv "$OPS_AGENT_CONFIG.new" "$OPS_AGENT_CONFIG"
+  systemctl restart google-cloud-ops-agent
+else
+  rm -f "$OPS_AGENT_CONFIG.new"
+fi
+else
+  echo "WARNING: log filters missing in checkout, not configuring Ops Agent log shipping"
+fi
 
 # --- tailscale serve: publish the admin panel to the tailnet only (idempotent) ---
 # WARNING: this must stay `tailscale serve`, never `tailscale funnel`.
