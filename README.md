@@ -185,6 +185,26 @@ https://vaultwarden.<your-tailnet-name>.ts.net/admin
 - Invite family members by entering their email addresses from `/admin`. Since SMTP is configured, invitation emails are sent automatically (also check the spam folder)
 - On the VM, run `systemctl start backup.service` and confirm the backup is transferred to the shared folder on the NAS
 
+## Security logging
+
+Attack traces are kept in Cloud Logging, outside the VM. Alerting is not set up yet. The log bucket (`security-logs`, 90 days), its sink and the Secret Manager audit config are owned by n8n-ops (same GCP project) and are not defined here; the sink picks these logs up by log name.
+
+| What | Log name (`log_id`) |
+|---|---|
+| Caddy access log (JSON) and Vaultwarden output | `docker_containers` (`jsonPayload.attrs."com.docker.compose.service"` is `caddy` or `vaultwarden`) |
+| Host journal, including sshd | `host_journal` |
+
+```
+# Requests to a path, with the client IP
+log_id("docker_containers") AND jsonPayload.request.uri=~"^/admin"
+
+# Failed logins (Vaultwarden logs the IP and username)
+log_id("docker_containers") AND jsonPayload.log=~"Username or password is incorrect"
+```
+
+- **No secrets in logs, by two filters.** Caddy deletes token query keys (`access_token`, `token`, `Token`, `t`) and drops all headers (User-Agent is re-added as `user_agent`), for access logs and for its error log. Vaultwarden's `request` log target is off (`LOG_LEVEL`) because it prints full URIs including tokens. If you raise `LOG_LEVEL` for debugging, tokens will be shipped to Cloud Logging; turn it back afterwards.
+- Log rotation applies to newly created containers only. The startup-script recreates them when `daemon.json` changes.
+
 ## Updating Vaultwarden
 
 The vaultwarden image is pinned to a literal tag in `vaultwarden/docker-compose.yml`, and updates reach production through the following two-step approval process. Immediate/automatic rollout is not the goal; the expectation is a manual review each time Dependabot flags a new version.
