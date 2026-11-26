@@ -5,7 +5,7 @@
 自分と家族用のVaultwarden(パスワードマネージャ)を、GCP Compute Engine(us-west1リージョン。GCP常時無料枠の対象リージョンのため)上でセルフホスティングするためのインフラ一式。TerraformでGCPリソースを、GitHub ActionsでCI/CDを、Tailscaleで管理系アクセスを保護する。
 
 - 公開URL: `https://vaultwarden.u-rei.com` (家族はここから普通にアクセス)
-- SSH: 通常の運用者アクセスはTailscale tailnet経由(`tailscale ssh`)のみ。Vaultwardenのバージョン更新デプロイに限り、`vaultwarden-deploy.yml`が承認ゲートを経てGCP IAP tunnel経由でCI用サービスアカウントとしてSSHする(下記「Vaultwardenのバージョン更新」参照)
+- SSH: インターネットから直接は到達できない。運用者はTailscale tailnet経由(`tailscale ssh`)、または代替としてGCP IAP tunnel(`gcloud compute ssh vaultwarden --zone us-west1-b --tunnel-through-iap`)を使う。CIもIAP tunnelを使う: `vaultwarden-deploy.yml`(下記「Vaultwardenのバージョン更新」参照)と`terraform-apply.yml`(applyのたびにstartup-scriptを再実行)で、いずれも手動承認を経る。プロジェクト全体に効いていたlegacyな`default-allow-ssh`は2026-11-26に無効化した(n8n-opsの`remove-default-allow-ssh`で管理)
 - Vaultwardenの`/admin`パネル: Tailscale tailnet経由のみ
 - バージョン更新の本番反映は`vaultwarden-deploy.yml`(GitHub Environment承認ゲート付き)経由でのみ行われ、PRマージだけでは自動反映されない(詳細は「Vaultwardenのバージョン更新」参照)
 - データバックアップ: 自宅Synology NASへ、Tailscale経由のrsyncデーモンで毎日プッシュ同期(下記参照)。世代管理はNAS側のBtrfsスナップショットに委譲
@@ -23,7 +23,7 @@ flowchart TB
         caddy["Caddy (TLS終端)<br/>/ → Vaultwarden<br/>/admin → tailnetのみ"]
         disk[("data disk: 専用Persistent Disk<br/>(VMと独立ライフサイクル)")]
     end
-    admin["運用者のSSHはtailscale sshのみ<br/>(公開ファイアウォールで22番は非公開)"]
+    admin["運用者のSSHはtailscale sshかIAP tunnel<br/>(公開ファイアウォールで22番は非公開)"]
     ci["vaultwarden-deploy.yml<br/>(承認ゲート付き、GCP IAP tunnel限定)"]
 
     internet -->|"443 のみ"| vm
@@ -179,7 +179,7 @@ https://vaultwarden.<自分のtailnet名>.ts.net/admin
 ### 10. 動作確認と家族の招待
 
 - `https://vaultwarden.u-rei.com` にアクセスし、Let's Encrypt証明書が有効になっていることを確認
-- `tailscale ssh <vm-hostname>` でVMに接続できることを確認
+- `tailscale ssh <vm-hostname>` でVMに接続できることを確認。端末がtailnetのポリシーで許可されていない場合は`gcloud compute ssh vaultwarden --zone us-west1-b --tunnel-through-iap`
 - `https://vaultwarden.u-rei.com/admin`がtailnetの内外どちらからアクセスしても403になることを確認
 - 自分のtailnet参加端末から`https://vaultwarden.<自分のtailnet名>.ts.net/admin`にアクセスできること、tailnet未参加の端末からは到達できないことを確認
 - `/admin`から家族分のメールアドレスを入力して招待する。SMTP設定済みのため招待メールが自動送信される(迷惑フォルダも確認する)
