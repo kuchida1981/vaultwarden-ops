@@ -5,7 +5,7 @@
 A complete infrastructure setup for self-hosting Vaultwarden (a password manager) for me and my family on GCP Compute Engine (us-west1 region, chosen to stay within the GCP always-free tier). Terraform manages GCP resources, GitHub Actions handles CI/CD, and Tailscale protects administrative access.
 
 - Public URL: `https://vaultwarden.u-rei.com` (family members access it normally from here)
-- SSH: routine operator access is only via the Tailscale tailnet (`tailscale ssh`). Vaultwarden version-update deploys are the sole exception — `vaultwarden-deploy.yml` SSHes as the CI service account over a GCP IAP tunnel, gated by manual approval (see "Updating Vaultwarden" below)
+- SSH: not reachable from the public internet. Operators use the Tailscale tailnet (`tailscale ssh`), or a GCP IAP tunnel (`gcloud compute ssh vaultwarden --zone us-west1-b --tunnel-through-iap`) as a fallback. CI also uses an IAP tunnel: `vaultwarden-deploy.yml` (see "Updating Vaultwarden" below) and `terraform-apply.yml` (re-runs the startup-script after every apply), both gated by manual approval. The project-wide legacy `default-allow-ssh` rule was disabled on 2026-11-26 (tracked in n8n-ops' `remove-default-allow-ssh`)
 - Vaultwarden's `/admin` panel: only reachable via the Tailscale tailnet
 - Version updates only reach production through `vaultwarden-deploy.yml` (gated by a GitHub Environment approval); merging the PR alone does not deploy anything (see "Updating Vaultwarden" below)
 - Data backup: pushed daily to a home Synology NAS via an rsync daemon over Tailscale (see below). Generation management is delegated to Btrfs snapshots on the NAS side
@@ -23,7 +23,7 @@ flowchart TB
         caddy["Caddy (TLS termination)<br/>/ → Vaultwarden<br/>/admin → tailnet only"]
         disk[("data disk: dedicated Persistent Disk<br/>(lifecycle independent of the VM)")]
     end
-    admin["Operator SSH only via tailscale ssh<br/>(port 22 is not exposed publicly)"]
+    admin["Operator SSH via tailscale ssh or IAP tunnel<br/>(port 22 is not exposed publicly)"]
     ci["vaultwarden-deploy.yml<br/>(approval-gated, GCP IAP tunnel only)"]
 
     internet -->|"443 only"| vm
@@ -179,7 +179,7 @@ https://vaultwarden.<your-tailnet-name>.ts.net/admin
 ### 10. Verify operation and invite family members
 
 - Access `https://vaultwarden.u-rei.com` and confirm the Let's Encrypt certificate is valid
-- Confirm you can connect to the VM with `tailscale ssh <vm-hostname>`
+- Confirm you can connect to the VM with `tailscale ssh <vm-hostname>`, or, if the tailnet policy does not allow it from your device, with `gcloud compute ssh vaultwarden --zone us-west1-b --tunnel-through-iap`
 - Confirm that accessing `https://vaultwarden.u-rei.com/admin` returns 403, from both inside and outside the tailnet
 - Confirm you can access `https://vaultwarden.<your-tailnet-name>.ts.net/admin` from your own tailnet-joined device, and that it's unreachable from a device not joined to the tailnet
 - Invite family members by entering their email addresses from `/admin`. Since SMTP is configured, invitation emails are sent automatically (also check the spam folder)
